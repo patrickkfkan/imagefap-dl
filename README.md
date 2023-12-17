@@ -101,6 +101,10 @@ Directory structure flags (--dir-structure)
 
 ## Changelog
 
+v1.1.0
+- Optimize fetching of image URLs
+- Misc bug fixes
+
 v1.0.0
 - Initial release
 
