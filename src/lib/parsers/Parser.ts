@@ -33,13 +33,18 @@ export default class Parser {
       return folderIDs.reduce<GalleryFolderLink[]>((result, id) => {
         const linkEl = $(`a[href^="https://www.imagefap.com/usergallery.php?userid"][href$="folderid=${id}"]`);
         if (linkEl.length > 0) {
-          const title = this.#htmlToText(linkEl.html());
+          const linkHTML = linkEl.html();
+          const selectedRegex = /^(?:<b>)(.+)(?:<\/b>)$/;
+          const selectedMatch = linkHTML ? selectedRegex.exec(linkHTML) : null;
+          const selected = !!(selectedMatch && selectedMatch[1]);
+          const title = this.#htmlToText(linkHTML);
           const href = linkEl.attr('href');
           if (href && title) {
             result.push({
               url: href,
               id: Number(id),
-              title
+              title,
+              selected
             });
           }
         }
@@ -59,7 +64,7 @@ export default class Parser {
     </tr>
   </table>
   */
-  parseGalleryFolderPage(html: string, baseURL: string): { galleryLinks: GalleryLink[]; nextURL?: string; } {
+  parseGalleryFolderPage(html: string, baseURL: string): { folder?: GalleryFolderLink; galleryLinks: GalleryLink[]; nextURL?: string; } {
     const $ = cheerioLoad(html);
 
     const links = $('table tr[id^="gid-"]')
@@ -100,9 +105,15 @@ export default class Parser {
       }
     }
 
+    const folder = this.parseUserGalleriesPage(html).find((link) => link.selected);
+    if (!folder) {
+      this.log('warn', 'Expecting folder info from page, but got none');
+    }
+
     return {
       galleryLinks: links,
-      nextURL
+      nextURL,
+      folder
     };
   }
 

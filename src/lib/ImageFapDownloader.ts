@@ -11,15 +11,15 @@ import sanitizeFilename from 'sanitize-filename';
 import { existsSync } from 'fs';
 import fse from 'fs-extra';
 import Parser from './parsers/Parser.js';
-import { GalleryFolderLink } from './entities/GalleryFolder.js';
-import { Gallery, GalleryLink } from './entities/Gallery.js';
+import { GalleryFolder } from './entities/GalleryFolder.js';
+import { Gallery } from './entities/Gallery.js';
 import { Image, ImageLink } from './entities/Image.js';
 import { User } from './entities/User.js';
 
 export type DownloadTargetType = 'userGalleries' | 'galleryFolder' | 'gallery' | 'photo';
 
 interface DownloadContext {
-  galleryFolder?: GalleryFolderLink;
+  galleryFolder?: GalleryFolder;
 }
 
 export interface DownloaderConfig extends DeepRequired<Pick<DownloaderOptions,
@@ -160,16 +160,20 @@ export default class ImageFapDownloader {
         this.log('info', `Got ${userGalleries.length} gallery folders`);
         for (const folder of userGalleries) {
           this.log('info', `**** Entering folder "${folder.title}" ****`);
-          context.galleryFolder = folder;
           await this.#process(folder.url, stats, signal, context);
         }
         break;
 
       case 'galleryFolder':
-        this.log('info', `Fetching galleries from folder "${url}"`);
-        const galleries = await this.#getAllGalleriesInFolder(url, stats, signal);
-        this.log('info', `Got ${galleries.length} galleries`);
-        for (const gallery of galleries) {
+        this.log('info', `Fetching gallery folder contents from "${url}"`);
+        const folder = await this.#getGalleryFolder(url, stats, signal);
+        this.log('info', 'Gallery folder:', {
+          id: folder.id,
+          title: folder.title,
+          galleries: folder.galleryLinks.length
+        });
+        context.galleryFolder = folder;
+        for (const gallery of folder.galleryLinks) {
           this.log('info', `**** Entering gallery "${gallery.title}" ****`);
           await this.#process(gallery.url, stats, signal, context);
         }
@@ -243,16 +247,26 @@ export default class ImageFapDownloader {
     });
   }
 
-  async #getAllGalleriesInFolder(url: string, stats: DownloadStats, signal?: AbortSignal, current: GalleryLink[] = []) {
+  async #getGalleryFolder(url: string, stats: DownloadStats, signal?: AbortSignal, current?: GalleryFolder) {
     let nextURL: string | undefined;
     try {
       const { html, lastURL } = await this.#fetchPage(url, signal);
-      const { galleryLinks, nextURL: _nextURL } = this.parser.parseGalleryFolderPage(html, lastURL);
-      current.push(...galleryLinks);
+      const { folder, galleryLinks, nextURL: _nextURL } = this.parser.parseGalleryFolderPage(html, lastURL);
+      if (!current) {
+        current = {
+          url: folder?.url || url,
+          id: folder?.id,
+          title: folder?.title,
+          galleryLinks
+        };
+      }
+      else {
+        current.galleryLinks.push(...galleryLinks);
+      }
       nextURL = _nextURL;
     }
     catch (error) {
-      if (this.#isErrorNonContinuable(error)) {
+      if (this.#isErrorNonContinuable(error) || !current) {
         throw error;
       }
       this.log('error', `Error fetching galleries from folder "${url}": `, error);
@@ -261,7 +275,7 @@ export default class ImageFapDownloader {
     }
     if (nextURL) {
       this.log('debug', `Fetching next set of galleries from "${nextURL}"`);
-      await this.#getAllGalleriesInFolder(nextURL, stats, signal, current);
+      await this.#getGalleryFolder(nextURL, stats, signal, current);
     }
     return current;
   }
@@ -359,8 +373,13 @@ export default class ImageFapDownloader {
     if (this.config.dirStructure.uploader) {
       gallerySavePathParts.push(sanitizeFilename(`${gallery.uploader.username} (${gallery.uploader.id})`));
     }
-    if (context.galleryFolder && this.config.dirStructure.folder) {
-      gallerySavePathParts.push(sanitizeFilename(`${context.galleryFolder.title} (${context.galleryFolder.id})`));
+    if (context.galleryFolder && context.galleryFolder.id && this.config.dirStructure.folder) {
+      if (context.galleryFolder.title) {
+        gallerySavePathParts.push(sanitizeFilename(`${context.galleryFolder.title} (${context.galleryFolder.id})`));
+      }
+      else {
+        gallerySavePathParts.push(sanitizeFilename(`${context.galleryFolder.id}`));
+      }
     }
     if (this.config.dirStructure.gallery) {
       if (gallery.id) {
