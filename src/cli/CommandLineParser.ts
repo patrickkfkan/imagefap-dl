@@ -253,7 +253,7 @@ export default class CommandLineParser {
         },
         {
           header: 'Usage notes',
-          content: 'ImageFap does not allow concurrent page requests! Do not run multiple instances of this program or even visit the website while download is in progress. Doing so could result in frequent \'Too many requests\' errors.'
+          content: 'If you encounter \'Too many requests\' errors, you would have to wait for a while for ImageFap to unblock your IP. Alternatively, in a fresh private browser session, you can visit the URL you are downloading from and complete the human-verification process there. To avoid bumping into \'Too many requests\' errors, make sure you have not set the --min-time-page option to a value lower than 2000.'
         },
         {
           header: 'Project home',
