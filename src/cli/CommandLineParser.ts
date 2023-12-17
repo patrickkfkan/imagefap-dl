@@ -199,6 +199,7 @@ export default class CommandLineParser {
         `- https://www.imagefap.com/profile/<username>/galleries${EOL}`,
 
         'Download all galleries in a folder:',
+        '- https://www.imagefap.com/profile/<username>/galleries?folderid=<folder-id>',
         '- https://www.imagefap.com/organizer/<folder-id>/<folder-slug>',
         `- https://www.imagefap.com/usergallery.php?userid=<user-id>&folderid=<folder-id>${EOL}`,
 

@@ -32,6 +32,9 @@ export default class URLHelper {
 
     const userGalleriesMatch = userGalleriesPathnameRegex.exec(pathname);
     if (userGalleriesMatch) {
+      if (searchParams.has('folderid')) {
+        return 'galleryFolder';
+      }
       return 'userGalleries';
     }
 
