@@ -67,4 +67,19 @@ export default class URLHelper {
     }
     return null;
   }
+
+  static constructImageNavURL(args: {
+    referrerImageID: number;
+    galleryID?: number;
+    startIndex: number;
+  }) {
+    return `${SITE_URL}/photo/${args.referrerImageID}/?gid=${args.galleryID}&idx=${args.startIndex}&partial=true`;
+  }
+
+  static constructImageNavRefererURL(args: {
+    referrerImageID: number;
+    galleryID?: number;
+  }) {
+    return `${SITE_URL}/photo/${args.referrerImageID}/?pgid=&gid=${args.galleryID}&page=0`;
+  }
 }

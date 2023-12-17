@@ -9,6 +9,7 @@ export interface Image {
 }
 
 export interface ImageLink {
+  id: number;
   url: string;
   title?: string;
 }

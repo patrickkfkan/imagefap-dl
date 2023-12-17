@@ -167,12 +167,14 @@ export default class Parser {
           const linkEl = $(el);
           const href = linkEl.attr('href');
           if (href) {
-            const imageID = href.split('/')[2];
-            if (imageID && linkEl.attr('name') === imageID) {
+            const imageIDStr = href.split('/')[2];
+            const imageID = this.#checkNumber(imageIDStr);
+            if (imageID && linkEl.attr('name') === imageIDStr) {
               const nextRowEl = linkEl.parents('tr').first().nextAll('tr').first();
               const statEls = nextRowEl.find('font');
               const title = this.#htmlToText($(statEls.get(1)).html());
               const link: ImageLink = {
+                id: imageID,
                 url: new URL(href, baseURL).toString(),
                 title
               };
@@ -214,60 +216,56 @@ export default class Parser {
   }
 
   /*
-  <table>
-    ...<td class="mnu0"><a href="https://www.imagefap.com/usergallery.php?userid=...">...</a></td> <--- userID
-  </table>
   <div id="_navi_cavi" class="_navi_cavi" data-total="304" data-idx="3" ...>
     <ul class="thumbs">
       <li>
         <a original="..." views="..." added="..." dimension="..." votes="<score>|<count>" imageid="..." ...>...</a>
       </li>
+      // If no results
+      <input type="hidden" id="is_empty" value="1">
     </ul>
   </div>
-  <div itemscope itemtype="http://schema.org/ImageObject">
-    <input type="hidden" id="imageid_input" value="..."> <-- imageID
-    <input type="hidden" id="galleryid_input" value="..."> <-- galleryID
-    <table>
-      ...<a href="https://www.imagefap.com/gallery.php?gid=...">...</a> <-- Gallery title
-      ...<a href="https://www.imagefap.com/profile.php?user=...">...</a> <-- Username
-    </table>
-  </div>
   */
-  parseImagePage(html: string, imageTitle?: string): Image | null {
+  parseImageNav(html: string): (Image | null)[] {
     const $ = cheerioLoad(html);
-    const itemScope = $('div[itemtype="http://schema.org/ImageObject"]');
-    const imageID = this.#checkNumber(itemScope.find('input#imageid_input').attr('value'));
-    const photoNav = $('div#_navi_cavi');
-    if (imageID !== undefined) {
-      const photo = photoNav.find(`ul.thumbs li a[imageid="${imageID}"]`);
-      if (photo.length > 0) {
-        const src = photo.attr('original');
-        const views = this.#checkNumber(photo.attr('views'));
-        const dateAdded = photo.attr('added');
-        const dimension = photo.attr('dimension');
-        const votes = photo.attr('votes');
-
-        let rating: number | undefined;
-        if (votes) {
-          const [ score ] = votes.split('|');
-          rating = this.#checkNumber(score);
-        }
-
-        if (src) {
-          return {
-            id: imageID,
-            title: imageTitle,
-            src,
-            views,
-            dimension,
-            dateAdded,
-            rating
-          };
-        }
-      }
+    const imageNav = $('div#_navi_cavi');
+    if (this.#checkNumber(imageNav.find('input#is_empty').attr('value')) === 1) {
+      return [];
     }
+    const images = imageNav.find('ul.thumbs li a').map((_i, linkEl) => {
+      const photo = $(linkEl);
+      const id = this.#checkNumber(photo.attr('imageid'));
+      const src = photo.attr('original');
+      const views = this.#checkNumber(photo.attr('views'));
+      const dateAdded = photo.attr('added');
+      const dimension = photo.attr('dimension');
+      const votes = photo.attr('votes');
 
-    throw Error('Parser failed to obtain required properties from image page');
+      let rating: number | undefined;
+      if (votes) {
+        const [ score ] = votes.split('|');
+        rating = this.#checkNumber(score);
+      }
+
+      if (id && src) {
+        const image: Image = {
+          id,
+          src,
+          views,
+          dimension,
+          dateAdded,
+          rating
+        };
+        return image;
+      }
+
+      this.log('error', 'Error parsing image details: id or src missing');
+
+      return null;
+    })
+      .toArray();
+
+    return images;
   }
 
   #parseUserFromPage($: CheerioAPI): User | undefined {

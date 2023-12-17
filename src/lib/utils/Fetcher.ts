@@ -1,5 +1,5 @@
 import * as fs from 'fs';
-import fetch, { AbortError, Request, Response } from 'node-fetch';
+import fetch, { AbortError, Headers, Request, Response } from 'node-fetch';
 import { pipeline } from 'stream/promises';
 import { URL } from 'url';
 import path from 'path';
@@ -59,12 +59,13 @@ export default class Fetcher {
     url: string,
     maxRetries: number,
     retryInterval: number,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    headers?: Headers
   }, rt = 0): Promise<{html: string, lastURL: string}> {
 
-    const { url, maxRetries, retryInterval, signal } = args;
+    const { url, maxRetries, retryInterval, signal, headers } = args;
     const urlObj = new URL(url);
-    const request = new Request(urlObj, { method: 'GET' });
+    const request = new Request(urlObj, { method: 'GET', headers });
     this.#setHeaders(request);
     try {
       const res = await fetch(request, { signal });

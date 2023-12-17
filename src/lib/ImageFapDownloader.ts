@@ -5,7 +5,7 @@ import Fetcher, { FetcherError } from './utils/Fetcher.js';
 import Logger, { LogLevel, commonLog } from './utils/logging/Logger.js';
 import URLHelper from './utils/URLHelper.js';
 import Bottleneck from 'bottleneck';
-import { AbortError } from 'node-fetch';
+import { AbortError, Headers } from 'node-fetch';
 import path from 'path';
 import sanitizeFilename from 'sanitize-filename';
 import { existsSync } from 'fs';
@@ -234,7 +234,7 @@ export default class ImageFapDownloader {
     return this.#fetcher;
   }
 
-  async #fetchPage(url: string, signal?: AbortSignal) {
+  async #fetchPage(url: string, signal?: AbortSignal, headers?: Headers) {
     const fetcher = await this.getFetcher();
     return this.pageFetchLimiter.schedule(() => {
       this.log('debug', `Fetch page "${url}"`);
@@ -242,7 +242,8 @@ export default class ImageFapDownloader {
         url,
         maxRetries: this.config.request.maxRetries,
         retryInterval: this.config.request.minTime.page,
-        signal
+        signal,
+        headers
       });
     });
   }
@@ -282,36 +283,56 @@ export default class ImageFapDownloader {
 
   async #getGallery(url: string, stats: DownloadStats, signal?: AbortSignal): Promise<{ gallery: Gallery, html: string }> {
     const { id, uploader, description, title, imageLinks, html } = await this.#getGalleryInitialData(url, stats, signal);
-    const total = imageLinks.length;
     let errorCount = 0;
-    const images = (await Promise.all(imageLinks.map(async (link, i) => {
-      this.log('debug', `Obtaining image details from "${link.url}"`);
-      try {
-        const {html} = await this.#fetchPage(link.url, signal);
-        const image = this.parser.parseImagePage(html, link.title);
-        this.log('debug', `Image (${i}/${total}): `, image);
-        return image;
-      }
-      catch (error) {
-        if (this.#isErrorNonContinuable(error)) {
-          throw error;
-        }
-        this.log('error', `Error fetching image details from "${link.url}": `, error);
-        this.#updateStatsOnError(error, stats);
-        errorCount++;
-        return null;
-      }
-    })))
-      .reduce<Image[]>((result, image) => {
+    let imageNavURL: string | null = null;
+    let referrerImageID = imageLinks[0]?.id;
+    let navIdx = 0;
+    let totalNavImageCount = 0;
+    if (imageLinks.length > 0) {
+      imageNavURL = URLHelper.constructImageNavURL({ referrerImageID, galleryID: id, startIndex: navIdx });
+    }
+    const images: Image[] = [];
+    while (imageNavURL) {
+      const headers = new Headers({
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Referer': URLHelper.constructImageNavRefererURL({ referrerImageID, galleryID: id })
+      });
+      const {html} = await this.#fetchPage(imageNavURL, signal, headers);
+      const navImages = this.parser.parseImageNav(html);
+      totalNavImageCount += navImages.length;
+      const parsedImages = navImages.reduce<Image[]>((result, image) => {
         if (image) {
           result.push(image);
         }
         return result;
       }, []);
+      if (navImages.length > parsedImages.length) {
+        const parseErrors = navImages.length - parsedImages.length;
+        stats.errorCount += parseErrors;
+        errorCount += parseErrors;
+      }
+      images.push(...parsedImages);
+      const lastParsedImageID = parsedImages.at(-1)?.id;
+      if (navImages.length > 0 && totalNavImageCount < imageLinks.length && lastParsedImageID) {
+        referrerImageID = lastParsedImageID;
+        navIdx += navImages.length;
+        imageNavURL = URLHelper.constructImageNavURL({ referrerImageID, galleryID: id, startIndex: navIdx });
+      }
+      else {
+        imageNavURL = null;
+      }
+    }
 
     if (errorCount > 0) {
-      this.log('warn', `Download of gallery "${title}" will be missing ${errorCount} images due to fetch errors`);
+      this.log('warn', `Download of gallery "${title}" will be missing ${errorCount} images due to parse errors`);
     }
+
+    images.forEach((image) => {
+      const link = imageLinks.find((l) => l.id === image.id);
+      if (link) {
+        image.title = link.title;
+      }
+    });
 
     const gallery: Gallery = {
       id,
