@@ -102,6 +102,9 @@ Directory structure flags (--dir-structure)
 
 ## Changelog
 
+v1.1.1
+- Fix download of galleries from anonymous uploaders
+
 v1.1.0
 - Optimize fetching of image URLs
 - Misc bug fixes
