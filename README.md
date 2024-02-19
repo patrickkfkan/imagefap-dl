@@ -90,7 +90,8 @@ Directory structure flags (--dir-structure)
   When downloading a gallery, the following flags specify which directory is to 
   be included in the output directory structure:                                
 
-  u   Include directory for uploader of the gallery                             
+  u   Include directory for uploader of the gallery (note: does not apply when  
+      uploader is anonymous)                                                    
   f   Include directory for folder containing the gallery (note: does not apply 
       when downloading a single gallery)                                        
   g   Include directory for the gallery itself                                  

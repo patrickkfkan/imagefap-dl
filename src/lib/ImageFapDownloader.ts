@@ -188,6 +188,7 @@ export default class ImageFapDownloader {
           this.log('info', 'Gallery:', {
             id: _gallery.id,
             title: _gallery.title,
+            uploader: _gallery.uploader?.username || '(Anonymous)',
             description: _gallery.description,
             images: _gallery.images.length
           });
@@ -349,7 +350,7 @@ export default class ImageFapDownloader {
     url: string,
     stats: DownloadStats,
     signal?: AbortSignal,
-    current?: { id?: number; uploader: User; description?: string; title: string; imageLinks: ImageLink[], html: string }) {
+    current?: { id?: number; uploader?: User; description?: string; title: string; imageLinks: ImageLink[], html: string }) {
 
     let nextURL: string | undefined;
     try {
@@ -391,7 +392,7 @@ export default class ImageFapDownloader {
 
   #getGallerySavePath(gallery: Gallery, context: DownloadContext ) {
     const gallerySavePathParts:string[] = [];
-    if (this.config.dirStructure.uploader) {
+    if (this.config.dirStructure.uploader && gallery.uploader) {
       gallerySavePathParts.push(sanitizeFilename(`${gallery.uploader.username} (${gallery.uploader.id})`));
     }
     if (context.galleryFolder && context.galleryFolder.id && this.config.dirStructure.folder) {

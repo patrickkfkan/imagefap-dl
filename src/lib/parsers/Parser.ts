@@ -159,7 +159,7 @@ export default class Parser {
     </td>
   </table>
   */
-  parseGalleryPage(html: string, baseURL: string): { id?: number, uploader: User, title: string; description?: string; imageLinks: ImageLink[]; nextURL?: string; } {
+  parseGalleryPage(html: string, baseURL: string): { id?: number, uploader?: User, title: string; description?: string; imageLinks: ImageLink[]; nextURL?: string; } {
     const $ = cheerioLoad(html);
     const links =
       $('a[href^="/photo/"]')
@@ -201,18 +201,14 @@ export default class Parser {
     const galleryID = this.#checkNumber($('input#galleryid_input').attr('value'));
     const uploader = this.#parseUserFromPage($);
 
-    if (uploader) {
-      return {
-        id: galleryID,
-        uploader,
-        title,
-        description,
-        imageLinks: links,
-        nextURL
-      };
-    }
-
-    throw Error('Parser failed to obtain required properties from gallery page');
+    return {
+      id: galleryID,
+      uploader,
+      title,
+      description,
+      imageLinks: links,
+      nextURL
+    };
   }
 
   /*

@@ -212,7 +212,7 @@ export default class CommandLineParser {
       const dirStructureContent = [
         {
           flag: 'u',
-          desc: 'Include directory for uploader of the gallery'
+          desc: 'Include directory for uploader of the gallery (note: does not apply when uploader is anonymous)'
         },
         {
           flag: 'f',

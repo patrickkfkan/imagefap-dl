@@ -4,7 +4,7 @@ import { User } from './User.js';
 export interface Gallery {
   id?: number;
   title: string;
-  uploader: User;
+  uploader?: User;
   description?: string;
   images: Image[];
 }
