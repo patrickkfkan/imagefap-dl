@@ -12,4 +12,5 @@ export interface ImageLink {
   id: number;
   url: string;
   title?: string;
+  fullTitle?: string;
 }

@@ -64,6 +64,11 @@ Options
                                         downloaded galleries. See "Directory    
                                         structure flags" section for available  
                                         flags.                                  
+  -f, --full-filenames                  Use full filename for image downloads.  
+                                        If not specified, filenames may be      
+                                        truncated. Note: getting full filenames 
+                                        involves extra page requests that will  
+                                        increase download time.                 
   -w, --overwrite                       Overwrite existing image files          
   -j, --no-json                         Do not save gallery info in JSON file   
   -m, --no-html                         Do not save original HTML               

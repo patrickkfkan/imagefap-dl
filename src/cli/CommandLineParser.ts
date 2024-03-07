@@ -12,6 +12,7 @@ const COMMAND_LINE_ARGS = {
   url: 'url',
   outDir: 'out-dir',
   dirStructure: 'dir-structure',
+  fullFilenames: 'full-filenames',
   overwrite: 'overwrite',
   noJSON: 'no-json',
   noHTML: 'no-html',
@@ -50,6 +51,12 @@ const OPT_DEFS = [
     alias: 'd',
     type: String,
     typeLabel: '<flags>'
+  },
+  {
+    name: COMMAND_LINE_ARGS.fullFilenames,
+    description: 'Use full filename for image downloads. If not specified, filenames may be truncated. Note: getting full filenames involves extra page requests that will increase download time.',
+    alias: 'f',
+    type: Boolean
   },
   {
     name: COMMAND_LINE_ARGS.overwrite,
@@ -142,6 +149,7 @@ export default class CommandLineParser {
 
       const booleanTypeArgs = [
         COMMAND_LINE_ARGS.noPrompt,
+        COMMAND_LINE_ARGS.fullFilenames,
         COMMAND_LINE_ARGS.overwrite,
         COMMAND_LINE_ARGS.noJSON,
         COMMAND_LINE_ARGS.noHTML
@@ -166,6 +174,7 @@ export default class CommandLineParser {
       url: __getValue(COMMAND_LINE_ARGS.url),
       outDir: __getValue(COMMAND_LINE_ARGS.outDir),
       dirStructure: __getValue(COMMAND_LINE_ARGS.dirStructure),
+      fullFilenames: __getValue(COMMAND_LINE_ARGS.fullFilenames),
       overwrite: __getValue(COMMAND_LINE_ARGS.overwrite),
       noJSON: __getValue(COMMAND_LINE_ARGS.noJSON),
       noHTML: __getValue(COMMAND_LINE_ARGS.noHTML),

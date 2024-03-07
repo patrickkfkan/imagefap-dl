@@ -285,6 +285,18 @@ export default class Parser {
     } : undefined;
   }
 
+  /*
+  <noscript>
+    <img id="mainPhoto" title="..." ...>
+  </noscript>
+  */
+  getImageTitleFromPhotoPage(html: string): string | undefined {
+    // https://github.com/cheeriojs/cheerio/issues/1105
+    const $ = cheerioLoad(html, { scriptingEnabled: false });
+    const photo = $('img#mainPhoto');
+    return photo.attr('title');
+  }
+
   #checkNumber(value?: string | null) {
     if (!isNaN(Number(value))) {
       return Number(value);

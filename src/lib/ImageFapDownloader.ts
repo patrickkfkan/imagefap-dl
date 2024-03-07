@@ -25,6 +25,7 @@ interface DownloadContext {
 export interface DownloaderConfig extends DeepRequired<Pick<DownloaderOptions,
   'outDir' |
   'dirStructure' |
+  'fullFilenames' |
   'request' |
   'overwrite' |
   'saveJSON' |
@@ -328,10 +329,14 @@ export default class ImageFapDownloader {
       this.log('warn', `Download of gallery "${title}" will be missing ${errorCount} images due to parse errors`);
     }
 
+    if (this.config.fullFilenames) {
+      await this.#updateImageLinksWithFullTitle(imageLinks, `${title} - `, signal);
+    }
+
     images.forEach((image) => {
       const link = imageLinks.find((l) => l.id === image.id);
       if (link) {
-        image.title = link.title;
+        image.title = link.fullTitle || link.title;
       }
     });
 
@@ -384,6 +389,17 @@ export default class ImageFapDownloader {
       await this.#getGalleryInitialData(nextURL, stats, signal, current);
     }
     return current;
+  }
+
+  async #updateImageLinksWithFullTitle(links: ImageLink[], stripPrefix: string, signal?: AbortSignal) {
+    this.log('debug', 'Fetching full image titles');
+    for (const link of links) {
+      const {html} = await this.#fetchPage(link.url, signal);
+      const title = this.parser.getImageTitleFromPhotoPage(html);
+      if (title) {
+        link.fullTitle = title.startsWith(stripPrefix) ? title.substring(stripPrefix.length) : title;
+      }
+    }
   }
 
   #isErrorNonContinuable(error: any) {

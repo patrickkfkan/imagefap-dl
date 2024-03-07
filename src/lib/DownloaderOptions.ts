@@ -9,7 +9,8 @@ export interface DownloaderOptions {
     uploader?: boolean;
     folder?: boolean;
     gallery?: boolean;
-  }
+  };
+  fullFilenames?: boolean;
   request?: {
     maxRetries?: number;
     maxConcurrent?: number;
@@ -25,7 +26,7 @@ export interface DownloaderOptions {
 }
 
 const DEFAULT_DOWNLOADER_CONFIG: Pick<DeepRequired<DownloaderConfig>,
-  'outDir' | 'dirStructure' | 'request' | 'overwrite' | 'saveJSON' | 'saveHTML'> = {
+  'outDir' | 'dirStructure' | 'fullFilenames' | 'request' | 'overwrite' | 'saveJSON' | 'saveHTML'> = {
 
     outDir: process.cwd(),
     dirStructure: {
@@ -33,6 +34,7 @@ const DEFAULT_DOWNLOADER_CONFIG: Pick<DeepRequired<DownloaderConfig>,
       folder: true,
       gallery: true
     },
+    fullFilenames: false,
     request: {
       maxRetries: 3,
       maxConcurrent: 10,
@@ -55,6 +57,7 @@ export function getDownloaderConfig(url: string, options?: DownloaderOptions): D
       folder: pickDefined(options?.dirStructure?.folder, defaults.dirStructure.folder),
       gallery: pickDefined(options?.dirStructure?.gallery, defaults.dirStructure.gallery)
     },
+    fullFilenames: pickDefined(options?.fullFilenames, defaults.fullFilenames),
     request: {
       maxRetries: pickDefined(options?.request?.maxRetries, defaults.request.maxRetries),
       maxConcurrent: pickDefined(options?.request?.maxConcurrent, defaults.request.maxConcurrent),
