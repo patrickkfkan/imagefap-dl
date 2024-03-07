@@ -107,6 +107,9 @@ Directory structure flags (--dir-structure)
 
 ## Changelog
 
+v1.2.0
+- Add `--full-filenames` option ([#2](https://github.com/patrickkfkan/imagefap-dl/issues/2))
+
 v1.1.1
 - Fix download of galleries from anonymous uploaders
 
