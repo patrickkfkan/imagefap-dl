@@ -5,7 +5,6 @@ import Fetcher, { FetcherError } from './utils/Fetcher.js';
 import Logger, { LogLevel, commonLog } from './utils/logging/Logger.js';
 import URLHelper from './utils/URLHelper.js';
 import Bottleneck from 'bottleneck';
-import { AbortError, Headers } from 'node-fetch';
 import path from 'path';
 import sanitizeFilename from 'sanitize-filename';
 import { existsSync } from 'fs';
@@ -102,7 +101,7 @@ export default class ImageFapDownloader {
           })
         ]);
       };
-      if (error instanceof AbortError) {
+      if (params.signal?.aborted) {
         this.log('info', 'Aborting...');
         await __clearLimiters();
         this.log('info', 'Download aborted');
@@ -249,7 +248,7 @@ export default class ImageFapDownloader {
           galleryHTML = _html;
         }
         catch (error) {
-          if (this.#isErrorNonContinuable(error)) {
+          if (this.#isErrorNonContinuable(error, signal)) {
             throw error;
           }
           this.log('error', `Error fetching gallery "${url}" - download skipped: `, error);
@@ -323,7 +322,7 @@ export default class ImageFapDownloader {
       nextURL = _nextURL;
     }
     catch (error) {
-      if (this.#isErrorNonContinuable(error) || !current) {
+      if (this.#isErrorNonContinuable(error, signal) || !current) {
         throw error;
       }
       this.log('error', `Error fetching galleries from folder "${url}": `, error);
@@ -364,7 +363,7 @@ export default class ImageFapDownloader {
       nextURL = _nextURL;
     }
     catch (error) {
-      if (this.#isErrorNonContinuable(error) || !current) {
+      if (this.#isErrorNonContinuable(error, signal) || !current) {
         throw error;
       }
       this.log('error', `Error fetching contents from folder "${url}": `, error);
@@ -472,7 +471,7 @@ export default class ImageFapDownloader {
       nextURL = _nextURL;
     }
     catch (error) {
-      if (this.#isErrorNonContinuable(error) || !current) {
+      if (this.#isErrorNonContinuable(error, signal) || !current) {
         throw error;
       }
       this.log('error', `Error fetching image links from "${url}": `, error);
@@ -507,8 +506,8 @@ export default class ImageFapDownloader {
     return images.filter((image) => image !== null) as Image[];
   }
 
-  #isErrorNonContinuable(error: any) {
-    return error instanceof AbortError || (error instanceof FetcherError && error.fatal);
+  #isErrorNonContinuable(error: any, signal?: AbortSignal) {
+    return signal?.aborted || (error instanceof FetcherError && error.fatal);
   }
 
   #getGallerySavePath(gallery: Gallery | null, context: DownloadContext ) {
@@ -572,7 +571,7 @@ export default class ImageFapDownloader {
       stats.downloadedImageCount++;
     }
     catch (error) {
-      if (this.#isErrorNonContinuable(error)) {
+      if (this.#isErrorNonContinuable(error, signal)) {
         throw error;
       }
       this.log('error', `Error downloading "${filename}" from "${image.src}": `, error);
