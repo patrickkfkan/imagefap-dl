@@ -69,6 +69,9 @@ Options
                                         downloaded galleries. See "Directory    
                                         structure flags" section for available  
                                         flags.                                  
+  -n, --seq-filenames                   Add sequential numbers to beginning of  
+                                        filenames based on display order of     
+                                        images.
   -f, --full-filenames                  Use full filename for image downloads.  
                                         If not specified, filenames may be      
                                         truncated. Note: getting full filenames 

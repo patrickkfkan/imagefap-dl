@@ -26,6 +26,7 @@ interface DownloadContext {
 export interface DownloaderConfig extends DeepRequired<Pick<DownloaderOptions,
   'outDir' |
   'dirStructure' |
+  'seqFilenames' |
   'fullFilenames' |
   'request' |
   'overwrite' |
@@ -226,7 +227,7 @@ export default class ImageFapDownloader {
           }
           fse.ensureDirSync(savePath);
           this.log('info', `Downloading ${folder.images.length} images from favorites folder "${folder.title}"`);
-          await Promise.all(folder.images.map((image) => this.#downloadImage(image, savePath, stats, signal)));
+          await Promise.all(folder.images.map((image, i) => this.#downloadImage(image, savePath, i, stats, signal)));
         }
         break;
       }
@@ -271,7 +272,7 @@ export default class ImageFapDownloader {
           fse.writeFileSync(htmlFile, galleryHTML, { encoding: 'utf-8' });
         }
         this.log('info', `Downloading ${gallery.images.length} images from gallery "${gallery.title}"`);
-        await Promise.all(gallery.images.map((image) => this.#downloadImage(image, gallerySavePath, stats, signal)));
+        await Promise.all(gallery.images.map((image, i) => this.#downloadImage(image, gallerySavePath, i, stats, signal)));
         stats.processedGalleryCount++;
         break;
       }
@@ -542,15 +543,16 @@ export default class ImageFapDownloader {
     return path.resolve(this.config.outDir, gallerySavePathParts.join(path.sep));
   }
 
-  async #downloadImage(image: Image, destDir: string, stats: DownloadStats, signal: AbortSignal | undefined) {
+  async #downloadImage(image: Image, destDir: string, index: number, stats: DownloadStats, signal: AbortSignal | undefined) {
     let filename: string;
     const ext = path.parse(new URL(image.src).pathname).ext;
+    const prefix = this.config.seqFilenames ? `${index} - ` : '';
     if (image.title) {
       const name = path.parse(image.title).name;
-      filename = sanitizeFilename(`${name} (${image.id})${ext}`);
+      filename = sanitizeFilename(`${prefix}${name} (${image.id})${ext}`);
     }
     else {
-      filename = sanitizeFilename(`${image.id}${ext}`);
+      filename = sanitizeFilename(`${prefix}${image.id}${ext}`);
     }
     const destPath = path.resolve(destDir, filename);
     if (existsSync(destPath) && !this.config.overwrite) {

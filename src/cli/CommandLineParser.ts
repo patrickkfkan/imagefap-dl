@@ -12,6 +12,7 @@ const COMMAND_LINE_ARGS = {
   url: 'url',
   outDir: 'out-dir',
   dirStructure: 'dir-structure',
+  seqFilenames: 'seq-filenames',
   fullFilenames: 'full-filenames',
   overwrite: 'overwrite',
   noJSON: 'no-json',
@@ -51,6 +52,12 @@ const OPT_DEFS = [
     alias: 'd',
     type: String,
     typeLabel: '<flags>'
+  },
+  {
+    name: COMMAND_LINE_ARGS.seqFilenames,
+    description: 'Add sequential numbers to beginning of filenames based on display order of images.',
+    alias: 'n',
+    type: Boolean
   },
   {
     name: COMMAND_LINE_ARGS.fullFilenames,
@@ -149,6 +156,7 @@ export default class CommandLineParser {
 
       const booleanTypeArgs = [
         COMMAND_LINE_ARGS.noPrompt,
+        COMMAND_LINE_ARGS.seqFilenames,
         COMMAND_LINE_ARGS.fullFilenames,
         COMMAND_LINE_ARGS.overwrite,
         COMMAND_LINE_ARGS.noJSON,
@@ -174,6 +182,7 @@ export default class CommandLineParser {
       url: __getValue(COMMAND_LINE_ARGS.url),
       outDir: __getValue(COMMAND_LINE_ARGS.outDir),
       dirStructure: __getValue(COMMAND_LINE_ARGS.dirStructure),
+      seqFilenames: __getValue(COMMAND_LINE_ARGS.seqFilenames),
       fullFilenames: __getValue(COMMAND_LINE_ARGS.fullFilenames),
       overwrite: __getValue(COMMAND_LINE_ARGS.overwrite),
       noJSON: __getValue(COMMAND_LINE_ARGS.noJSON),
