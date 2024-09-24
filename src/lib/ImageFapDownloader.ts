@@ -218,6 +218,7 @@ export default class ImageFapDownloader {
         }
         if (folder.images.length > 0) {
           const savePath = this.#getGallerySavePath(null, context);
+          fse.ensureDirSync(savePath);
           if (this.config.saveJSON) {
             const infoFile = path.resolve(savePath, 'favorites.json');
             const writeInfo = { ...folder } as any;
@@ -225,7 +226,6 @@ export default class ImageFapDownloader {
             this.log('info', `Saving info to "${infoFile}"`);
             fse.writeJSONSync(infoFile, writeInfo, { encoding: 'utf-8', spaces: 2 });
           }
-          fse.ensureDirSync(savePath);
           this.log('info', `Downloading ${folder.images.length} images from favorites folder "${folder.title}"`);
           await Promise.all(folder.images.map((image, i) => this.#downloadImage(image, savePath, i, stats, signal)));
         }
