@@ -118,6 +118,11 @@ Directory structure flags (--dir-structure)
 
 ## Changelog
 
+v2.0.0
+- Add support for downloading user favorites ([#5](https://github.com/patrickkfkan/imagefap-dl/issues/5))
+- Add `--seq-filenames` option
+- Bump minimum required version of Node.js to v18
+
 v1.2.0
 - Add `--full-filenames` option ([#2](https://github.com/patrickkfkan/imagefap-dl/issues/2))
 
