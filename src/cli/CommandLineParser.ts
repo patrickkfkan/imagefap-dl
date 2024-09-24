@@ -12,6 +12,7 @@ const COMMAND_LINE_ARGS = {
   url: 'url',
   outDir: 'out-dir',
   dirStructure: 'dir-structure',
+  seqFilenames: 'seq-filenames',
   fullFilenames: 'full-filenames',
   overwrite: 'overwrite',
   noJSON: 'no-json',
@@ -51,6 +52,12 @@ const OPT_DEFS = [
     alias: 'd',
     type: String,
     typeLabel: '<flags>'
+  },
+  {
+    name: COMMAND_LINE_ARGS.seqFilenames,
+    description: 'Add sequential numbers to beginning of filenames based on display order of images.',
+    alias: 'n',
+    type: Boolean
   },
   {
     name: COMMAND_LINE_ARGS.fullFilenames,
@@ -149,6 +156,7 @@ export default class CommandLineParser {
 
       const booleanTypeArgs = [
         COMMAND_LINE_ARGS.noPrompt,
+        COMMAND_LINE_ARGS.seqFilenames,
         COMMAND_LINE_ARGS.fullFilenames,
         COMMAND_LINE_ARGS.overwrite,
         COMMAND_LINE_ARGS.noJSON,
@@ -174,6 +182,7 @@ export default class CommandLineParser {
       url: __getValue(COMMAND_LINE_ARGS.url),
       outDir: __getValue(COMMAND_LINE_ARGS.outDir),
       dirStructure: __getValue(COMMAND_LINE_ARGS.dirStructure),
+      seqFilenames: __getValue(COMMAND_LINE_ARGS.seqFilenames),
       fullFilenames: __getValue(COMMAND_LINE_ARGS.fullFilenames),
       overwrite: __getValue(COMMAND_LINE_ARGS.overwrite),
       noJSON: __getValue(COMMAND_LINE_ARGS.noJSON),
@@ -215,13 +224,23 @@ export default class CommandLineParser {
         'Download a single gallery:',
         '- https://www.imagefap.com/gallery/<gallery-id>',
         '- https://www.imagefap.com/gallery.php?gid=<gallery-id>',
-        '- https://www.imagefap.com/pictures/<gallery-id>/<gallery-slug>'
+        `- https://www.imagefap.com/pictures/<gallery-id>/<gallery-slug>${EOL}`,
+
+        'Download all user favorites:',
+        `- https://www.imagefap.com/showfavorites.php?userid=<user-id>${EOL}`,
+
+        'Download user favorites by folder:',
+        '- https://www.imagefap.com/showfavorites.php?userid=<user-id>&folderid=<folder-id>'
 
       ];
       const dirStructureContent = [
         {
           flag: 'u',
-          desc: 'Include directory for uploader of the gallery (note: does not apply when uploader is anonymous)'
+          desc: 'If downloading user favorites, include directory for the user; otherwise, include directory for uploader of the gallery (note: does not apply when uploader is anonymous)'
+        },
+        {
+          flag: 'v',
+          desc: 'Include "Favorites" directory (only applies when downloading user favorites)'
         },
         {
           flag: 'f',
@@ -258,7 +277,7 @@ export default class CommandLineParser {
           content: dirStructureContent
         },
         {
-          content: 'Default: ufg'
+          content: 'Default: uvfg'
         },
         {
           header: 'Usage notes',

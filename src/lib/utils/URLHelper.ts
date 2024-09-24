@@ -53,6 +53,13 @@ export default class URLHelper {
       return 'photo';
     }
 
+    if (pathname === '/showfavorites.php' && searchParams.has('userid')) {
+      if (searchParams.has('folderid')) {
+        return 'favoritesFolder';
+      }
+      return 'favorites';
+    }
+
     throw Error(`Could not determine operation type by URL "${url}"`);
   }
 

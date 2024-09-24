@@ -48,12 +48,14 @@ export default class ImageFapDownloaderCLI {
 
     const dirStructure: DownloaderOptions['dirStructure'] = {};
     if (options.dirStructure.includes('-')) {
-      dirStructure.uploader = false;
+      dirStructure.user = false;
+      dirStructure.favorites = false;
       dirStructure.folder = false;
       dirStructure.gallery = false;
     }
     else {
-      dirStructure.uploader = options.dirStructure.includes('u');
+      dirStructure.user = options.dirStructure.includes('u');
+      dirStructure.favorites = options.dirStructure.includes('v');
       dirStructure.folder = options.dirStructure.includes('f');
       dirStructure.gallery = options.dirStructure.includes('g');
     }

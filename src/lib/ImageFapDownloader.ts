@@ -5,26 +5,27 @@ import Fetcher, { FetcherError } from './utils/Fetcher.js';
 import Logger, { LogLevel, commonLog } from './utils/logging/Logger.js';
 import URLHelper from './utils/URLHelper.js';
 import Bottleneck from 'bottleneck';
-import { AbortError, Headers } from 'node-fetch';
 import path from 'path';
 import sanitizeFilename from 'sanitize-filename';
 import { existsSync } from 'fs';
 import fse from 'fs-extra';
 import Parser from './parsers/Parser.js';
-import { GalleryFolder } from './entities/GalleryFolder.js';
+import { FavoritesFolder, GalleryFolder } from './entities/GalleryFolder.js';
 import { Gallery } from './entities/Gallery.js';
 import { Image, ImageLink } from './entities/Image.js';
 import { User } from './entities/User.js';
 
-export type DownloadTargetType = 'userGalleries' | 'galleryFolder' | 'gallery' | 'photo';
+export type DownloadTargetType = 'userGalleries' | 'galleryFolder' | 'gallery' | 'photo' | 'favorites' | 'favoritesFolder';
 
 interface DownloadContext {
+  isFavorite?: boolean;
   galleryFolder?: GalleryFolder;
 }
 
 export interface DownloaderConfig extends DeepRequired<Pick<DownloaderOptions,
   'outDir' |
   'dirStructure' |
+  'seqFilenames' |
   'fullFilenames' |
   'request' |
   'overwrite' |
@@ -100,7 +101,7 @@ export default class ImageFapDownloader {
           })
         ]);
       };
-      if (error instanceof AbortError) {
+      if (params.signal?.aborted) {
         this.log('info', 'Aborting...');
         await __clearLimiters();
         this.log('info', 'Download aborted');
@@ -154,7 +155,7 @@ export default class ImageFapDownloader {
     const targetType = URLHelper.getTargetTypeByURL(url);
 
     switch (targetType) {
-      case 'userGalleries':
+      case 'userGalleries': {
         this.log('info', `Fetching user galleries from "${url}"`);
         const {html} = await this.#fetchPage(url, signal);
         const userGalleries = this.parser.parseUserGalleriesPage(html);
@@ -164,8 +165,21 @@ export default class ImageFapDownloader {
           await this.#process(folder.url, stats, signal, context);
         }
         break;
+      }
 
-      case 'galleryFolder':
+      case 'favorites': {
+        this.log('info', `Fetching user favorites from "${url}"`);
+        const {html} = await this.#fetchPage(url, signal);
+        const favoriteFolders = this.parser.parseFavoritesPage(html);
+        this.log('info', `Got ${favoriteFolders.length} gallery folders`);
+        for (const folder of favoriteFolders) {
+          this.log('info', `**** Entering folder "${folder.title}" ****`);
+          await this.#process(folder.url, stats, signal, context);
+        }
+        break;
+      }
+
+      case 'galleryFolder': {
         this.log('info', `Fetching gallery folder contents from "${url}"`);
         const folder = await this.#getGalleryFolder(url, stats, signal);
         this.log('info', 'Gallery folder:', {
@@ -179,8 +193,45 @@ export default class ImageFapDownloader {
           await this.#process(gallery.url, stats, signal, context);
         }
         break;
+      }
 
-      case 'gallery':
+      case 'favoritesFolder': {
+        this.log('info', `Fetching favorites folder contents from "${url}"`);
+        const folder = await this.#getFavoritesFolder(url, stats, signal);
+        const info = {
+          id: folder.id,
+          title: folder.title
+        } as any;
+        if (folder.galleryLinks.length > 0) {
+          info.galleries = folder.galleryLinks.length;
+        }
+        if (folder.images.length > 0) {
+          info.images = folder.images.length;
+        }
+        this.log('info', 'Favorites folder:', info);
+        context.galleryFolder = folder;
+        context.isFavorite = true;
+        for (const gallery of folder.galleryLinks) {
+          this.log('info', `**** Entering gallery "${gallery.title}" ****`);
+          await this.#process(gallery.url, stats, signal, context);
+        }
+        if (folder.images.length > 0) {
+          const savePath = this.#getGallerySavePath(null, context);
+          fse.ensureDirSync(savePath);
+          if (this.config.saveJSON) {
+            const infoFile = path.resolve(savePath, 'favorites.json');
+            const writeInfo = { ...folder } as any;
+            delete writeInfo.galleryLinks;
+            this.log('info', `Saving info to "${infoFile}"`);
+            fse.writeJSONSync(infoFile, writeInfo, { encoding: 'utf-8', spaces: 2 });
+          }
+          this.log('info', `Downloading ${folder.images.length} images from favorites folder "${folder.title}"`);
+          await Promise.all(folder.images.map((image, i) => this.#downloadImage(image, savePath, i, stats, signal)));
+        }
+        break;
+      }
+
+      case 'gallery': {
         this.log('info', `Fetching gallery contents from "${url}"`);
         let gallery: Gallery;
         let galleryHTML: string;
@@ -197,7 +248,7 @@ export default class ImageFapDownloader {
           galleryHTML = _html;
         }
         catch (error) {
-          if (this.#isErrorNonContinuable(error)) {
+          if (this.#isErrorNonContinuable(error, signal)) {
             throw error;
           }
           this.log('error', `Error fetching gallery "${url}" - download skipped: `, error);
@@ -220,9 +271,10 @@ export default class ImageFapDownloader {
           fse.writeFileSync(htmlFile, galleryHTML, { encoding: 'utf-8' });
         }
         this.log('info', `Downloading ${gallery.images.length} images from gallery "${gallery.title}"`);
-        await Promise.all(gallery.images.map((image) => this.#downloadImage(image, gallerySavePath, stats, signal)));
+        await Promise.all(gallery.images.map((image, i) => this.#downloadImage(image, gallerySavePath, i, stats, signal)));
         stats.processedGalleryCount++;
         break;
+      }
 
       default:
         throw Error(`Unsupported target type "${targetType}"`);
@@ -254,12 +306,13 @@ export default class ImageFapDownloader {
     let nextURL: string | undefined;
     try {
       const { html, lastURL } = await this.#fetchPage(url, signal);
-      const { folder, galleryLinks, nextURL: _nextURL } = this.parser.parseGalleryFolderPage(html, lastURL);
+      const { folder, owner, galleryLinks, nextURL: _nextURL } = this.parser.parseGalleryFolderPage(html, lastURL);
       if (!current) {
         current = {
           url: folder?.url || url,
           id: folder?.id,
           title: folder?.title,
+          owner,
           galleryLinks
         };
       }
@@ -269,7 +322,7 @@ export default class ImageFapDownloader {
       nextURL = _nextURL;
     }
     catch (error) {
-      if (this.#isErrorNonContinuable(error) || !current) {
+      if (this.#isErrorNonContinuable(error, signal) || !current) {
         throw error;
       }
       this.log('error', `Error fetching galleries from folder "${url}": `, error);
@@ -279,6 +332,47 @@ export default class ImageFapDownloader {
     if (nextURL) {
       this.log('debug', `Fetching next set of galleries from "${nextURL}"`);
       await this.#getGalleryFolder(nextURL, stats, signal, current);
+    }
+    return current;
+  }
+
+  async #getFavoritesFolder(url: string, stats: DownloadStats, signal?: AbortSignal, current?: FavoritesFolder) {
+    let nextURL: string | undefined;
+    try {
+      const { html, lastURL } = await this.#fetchPage(url, signal);
+      const { folder, owner, galleryLinks, imageLinks, nextURL: _nextURL } = this.parser.parseFavoritesFolderPage(html, lastURL);
+      const images = imageLinks && imageLinks.length > 0 ? await this.#getImagesByLink(imageLinks, signal) : [];
+      if (!current) {
+        current = {
+          url: folder?.url || url,
+          id: folder?.id,
+          title: folder?.title,
+          owner,
+          galleryLinks: galleryLinks || [],
+          images
+        };
+      }
+      else {
+        if (galleryLinks) {
+          current.galleryLinks.push(...galleryLinks);
+        }
+        if (imageLinks) {
+          current.images.push(...images);
+        }
+      }
+      nextURL = _nextURL;
+    }
+    catch (error) {
+      if (this.#isErrorNonContinuable(error, signal) || !current) {
+        throw error;
+      }
+      this.log('error', `Error fetching contents from folder "${url}": `, error);
+      this.log('warn', 'Download will be missing some galleries');
+      this.#updateStatsOnError(error, stats);
+    }
+    if (nextURL) {
+      this.log('debug', `Fetching next set of items from "${nextURL}"`);
+      await this.#getFavoritesFolder(nextURL, stats, signal, current);
     }
     return current;
   }
@@ -330,7 +424,7 @@ export default class ImageFapDownloader {
     }
 
     if (this.config.fullFilenames) {
-      await this.#updateImageLinksWithFullTitle(imageLinks, `${title} - `, signal);
+      await this.#updateImageLinksWithFullTitle(imageLinks, signal);
     }
 
     images.forEach((image) => {
@@ -377,7 +471,7 @@ export default class ImageFapDownloader {
       nextURL = _nextURL;
     }
     catch (error) {
-      if (this.#isErrorNonContinuable(error) || !current) {
+      if (this.#isErrorNonContinuable(error, signal) || !current) {
         throw error;
       }
       this.log('error', `Error fetching image links from "${url}": `, error);
@@ -391,24 +485,42 @@ export default class ImageFapDownloader {
     return current;
   }
 
-  async #updateImageLinksWithFullTitle(links: ImageLink[], stripPrefix: string, signal?: AbortSignal) {
+  async #updateImageLinksWithFullTitle(links: ImageLink[], signal?: AbortSignal) {
     this.log('debug', 'Fetching full image titles');
     for (const link of links) {
       const {html} = await this.#fetchPage(link.url, signal);
       const title = this.parser.getImageTitleFromPhotoPage(html);
       if (title) {
-        link.fullTitle = title.startsWith(stripPrefix) ? title.substring(stripPrefix.length) : title;
+        link.fullTitle = title;
       }
     }
   }
 
-  #isErrorNonContinuable(error: any) {
-    return error instanceof AbortError || (error instanceof FetcherError && error.fatal);
+  async #getImagesByLink(links: ImageLink[], signal?: AbortSignal): Promise<Image[]> {
+    const __doGet = async (link: ImageLink) => {
+      this.log('debug', `Fetching image info from ${link.url}`);
+      const {html} = await this.#fetchPage(link.url, signal);
+      return this.parser.parsePhotoPage(html);
+    };
+    const images = await Promise.all(links.map((link) => __doGet(link)));
+    return images.filter((image) => image !== null) as Image[];
   }
 
-  #getGallerySavePath(gallery: Gallery, context: DownloadContext ) {
+  #isErrorNonContinuable(error: any, signal?: AbortSignal) {
+    return signal?.aborted || (error instanceof FetcherError && error.fatal);
+  }
+
+  #getGallerySavePath(gallery: Gallery | null, context: DownloadContext ) {
     const gallerySavePathParts:string[] = [];
-    if (this.config.dirStructure.uploader && gallery.uploader) {
+    if (context.isFavorite) {
+      if (this.config.dirStructure.user && context.galleryFolder?.owner) {
+        gallerySavePathParts.push(sanitizeFilename(`${context.galleryFolder.owner.username} (${context.galleryFolder.owner.id})`));
+      }
+      if (this.config.dirStructure.favorites) {
+        gallerySavePathParts.push('Favorites');
+      }
+    }
+    else if (this.config.dirStructure.user && gallery?.uploader) {
       gallerySavePathParts.push(sanitizeFilename(`${gallery.uploader.username} (${gallery.uploader.id})`));
     }
     if (context.galleryFolder && context.galleryFolder.id && this.config.dirStructure.folder) {
@@ -419,7 +531,7 @@ export default class ImageFapDownloader {
         gallerySavePathParts.push(sanitizeFilename(`${context.galleryFolder.id}`));
       }
     }
-    if (this.config.dirStructure.gallery) {
+    if (this.config.dirStructure.gallery && gallery) {
       if (gallery.id) {
         gallerySavePathParts.push(sanitizeFilename(`${gallery.title} (${gallery.id})`));
       }
@@ -430,15 +542,16 @@ export default class ImageFapDownloader {
     return path.resolve(this.config.outDir, gallerySavePathParts.join(path.sep));
   }
 
-  async #downloadImage(image: Image, destDir: string, stats: DownloadStats, signal: AbortSignal | undefined) {
+  async #downloadImage(image: Image, destDir: string, index: number, stats: DownloadStats, signal: AbortSignal | undefined) {
     let filename: string;
     const ext = path.parse(new URL(image.src).pathname).ext;
+    const prefix = this.config.seqFilenames ? `${index} - ` : '';
     if (image.title) {
       const name = path.parse(image.title).name;
-      filename = sanitizeFilename(`${name} (${image.id})${ext}`);
+      filename = sanitizeFilename(`${prefix}${name} (${image.id})${ext}`);
     }
     else {
-      filename = sanitizeFilename(`${image.id}${ext}`);
+      filename = sanitizeFilename(`${prefix}${image.id}${ext}`);
     }
     const destPath = path.resolve(destDir, filename);
     if (existsSync(destPath) && !this.config.overwrite) {
@@ -458,7 +571,7 @@ export default class ImageFapDownloader {
       stats.downloadedImageCount++;
     }
     catch (error) {
-      if (this.#isErrorNonContinuable(error)) {
+      if (this.#isErrorNonContinuable(error, signal)) {
         throw error;
       }
       this.log('error', `Error downloading "${filename}" from "${image.src}": `, error);

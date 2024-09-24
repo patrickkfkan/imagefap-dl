@@ -1,3 +1,5 @@
+import { User } from './User';
+
 export interface Image {
   id: number;
   title?: string;
@@ -6,6 +8,7 @@ export interface Image {
   dimension?: string;
   dateAdded?: string;
   rating?: number;
+  uploader?: User;
 }
 
 export interface ImageLink {

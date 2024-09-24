@@ -1,5 +1,4 @@
 import * as fs from 'fs';
-import fetch, { AbortError, Headers, Request, Response } from 'node-fetch';
 import { pipeline } from 'stream/promises';
 import { URL } from 'url';
 import path from 'path';
@@ -80,7 +79,7 @@ export default class Fetcher {
       };
     }
     catch (error) {
-      if (error instanceof AbortError || (error instanceof FetcherError && error.fatal)) {
+      if (signal?.aborted || (error instanceof FetcherError && error.fatal)) {
         throw error;
       }
       if (rt < maxRetries) {
@@ -151,7 +150,7 @@ export default class Fetcher {
   }
 
   #assertResponseOK(response: Response | null, originURL: string, requireBody: false): response is Response;
-  #assertResponseOK(response: Response | null, originURL: string, requireBody?: true): response is Response & { body: NonNullable<Response['body']> };
+  #assertResponseOK(response: Response | null, originURL: string, requireBody?: true): response is Response & { body: NodeJS.ReadableStream };
   #assertResponseOK(response: Response | null, originURL: string, requireBody = true) {
     if (!response) {
       throw new FetcherError('No response', originURL);

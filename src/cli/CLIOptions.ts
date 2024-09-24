@@ -8,6 +8,7 @@ export interface CLIOptions extends Omit<DownloaderOptions, 'dirStructure' | 'lo
   url: string;
   noPrompt: boolean;
   dirStructure: string;
+  seqFilenames: boolean;
   fullFilenames: boolean;
   noJSON: boolean;
   noHTML: boolean;
@@ -25,12 +26,13 @@ export interface CLIOptionParserEntry {
 export function getCLIOptions(): CLIOptions {
   const commandLineOptions = CommandLineParser.parse();
 
-  const dirStructure = CLIOptionValidator.validateFlags(commandLineOptions.dirStructure, 'u', 'f', 'g', '-');
+  const dirStructure = CLIOptionValidator.validateFlags(commandLineOptions.dirStructure, 'u', 'v', 'f', 'g', '-');
 
   const options: CLIOptions = {
     url: CLIOptionValidator.validateRequired(commandLineOptions.url, 'No target URL specified'),
     outDir: CLIOptionValidator.validateString(commandLineOptions.outDir),
-    dirStructure: pickDefined(dirStructure, 'ufg'),
+    dirStructure: pickDefined(dirStructure, 'uvfg'),
+    seqFilenames: CLIOptionValidator.validateBoolean(commandLineOptions.seqFilenames) || false,
     fullFilenames: CLIOptionValidator.validateBoolean(commandLineOptions.fullFilenames) || false,
     overwrite: CLIOptionValidator.validateBoolean(commandLineOptions.overwrite),
     noJSON: CLIOptionValidator.validateBoolean(commandLineOptions.noJSON) || false,
