@@ -215,13 +215,23 @@ export default class CommandLineParser {
         'Download a single gallery:',
         '- https://www.imagefap.com/gallery/<gallery-id>',
         '- https://www.imagefap.com/gallery.php?gid=<gallery-id>',
-        '- https://www.imagefap.com/pictures/<gallery-id>/<gallery-slug>'
+        `- https://www.imagefap.com/pictures/<gallery-id>/<gallery-slug>${EOL}`,
+
+        'Download all user favorites:',
+        `- https://www.imagefap.com/showfavorites.php?userid=<user-id>${EOL}`,
+
+        'Download user favorites by folder:',
+        '- https://www.imagefap.com/showfavorites.php?userid=<user-id>&folderid=<folder-id>'
 
       ];
       const dirStructureContent = [
         {
           flag: 'u',
-          desc: 'Include directory for uploader of the gallery (note: does not apply when uploader is anonymous)'
+          desc: 'If downloading user favorites, include directory for the user; otherwise, include directory for uploader of the gallery (note: does not apply when uploader is anonymous)'
+        },
+        {
+          flag: 'v',
+          desc: 'Include "Favorites" directory (only applies when downloading user favorites)'
         },
         {
           flag: 'f',
@@ -258,7 +268,7 @@ export default class CommandLineParser {
           content: dirStructureContent
         },
         {
-          content: 'Default: ufg'
+          content: 'Default: uvfg'
         },
         {
           header: 'Usage notes',

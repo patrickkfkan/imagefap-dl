@@ -6,7 +6,8 @@ import { DownloaderConfig } from './ImageFapDownloader.js';
 export interface DownloaderOptions {
   outDir?: string;
   dirStructure?: {
-    uploader?: boolean;
+    user?: boolean;
+    favorites?: boolean;
     folder?: boolean;
     gallery?: boolean;
   };
@@ -30,7 +31,8 @@ const DEFAULT_DOWNLOADER_CONFIG: Pick<DeepRequired<DownloaderConfig>,
 
     outDir: process.cwd(),
     dirStructure: {
-      uploader: true,
+      user: true,
+      favorites: true,
       folder: true,
       gallery: true
     },
@@ -53,7 +55,8 @@ export function getDownloaderConfig(url: string, options?: DownloaderOptions): D
   return {
     outDir: options?.outDir ? path.resolve(options.outDir) : defaults.outDir,
     dirStructure: {
-      uploader: pickDefined(options?.dirStructure?.uploader, defaults.dirStructure.uploader),
+      user: pickDefined(options?.dirStructure?.user, defaults.dirStructure.user),
+      favorites: pickDefined(options?.dirStructure?.favorites, defaults.dirStructure.favorites),
       folder: pickDefined(options?.dirStructure?.folder, defaults.dirStructure.folder),
       gallery: pickDefined(options?.dirStructure?.gallery, defaults.dirStructure.gallery)
     },

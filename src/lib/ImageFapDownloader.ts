@@ -11,14 +11,15 @@ import sanitizeFilename from 'sanitize-filename';
 import { existsSync } from 'fs';
 import fse from 'fs-extra';
 import Parser from './parsers/Parser.js';
-import { GalleryFolder } from './entities/GalleryFolder.js';
+import { FavoritesFolder, GalleryFolder } from './entities/GalleryFolder.js';
 import { Gallery } from './entities/Gallery.js';
 import { Image, ImageLink } from './entities/Image.js';
 import { User } from './entities/User.js';
 
-export type DownloadTargetType = 'userGalleries' | 'galleryFolder' | 'gallery' | 'photo';
+export type DownloadTargetType = 'userGalleries' | 'galleryFolder' | 'gallery' | 'photo' | 'favorites' | 'favoritesFolder';
 
 interface DownloadContext {
+  isFavorite?: boolean;
   galleryFolder?: GalleryFolder;
 }
 
@@ -154,7 +155,7 @@ export default class ImageFapDownloader {
     const targetType = URLHelper.getTargetTypeByURL(url);
 
     switch (targetType) {
-      case 'userGalleries':
+      case 'userGalleries': {
         this.log('info', `Fetching user galleries from "${url}"`);
         const {html} = await this.#fetchPage(url, signal);
         const userGalleries = this.parser.parseUserGalleriesPage(html);
@@ -164,8 +165,21 @@ export default class ImageFapDownloader {
           await this.#process(folder.url, stats, signal, context);
         }
         break;
+      }
 
-      case 'galleryFolder':
+      case 'favorites': {
+        this.log('info', `Fetching user favorites from "${url}"`);
+        const {html} = await this.#fetchPage(url, signal);
+        const favoriteFolders = this.parser.parseFavoritesPage(html);
+        this.log('info', `Got ${favoriteFolders.length} gallery folders`);
+        for (const folder of favoriteFolders) {
+          this.log('info', `**** Entering folder "${folder.title}" ****`);
+          await this.#process(folder.url, stats, signal, context);
+        }
+        break;
+      }
+
+      case 'galleryFolder': {
         this.log('info', `Fetching gallery folder contents from "${url}"`);
         const folder = await this.#getGalleryFolder(url, stats, signal);
         this.log('info', 'Gallery folder:', {
@@ -179,8 +193,45 @@ export default class ImageFapDownloader {
           await this.#process(gallery.url, stats, signal, context);
         }
         break;
+      }
 
-      case 'gallery':
+      case 'favoritesFolder': {
+        this.log('info', `Fetching favorites folder contents from "${url}"`);
+        const folder = await this.#getFavoritesFolder(url, stats, signal);
+        const info = {
+          id: folder.id,
+          title: folder.title
+        } as any;
+        if (folder.galleryLinks.length > 0) {
+          info.galleries = folder.galleryLinks.length;
+        }
+        if (folder.images.length > 0) {
+          info.images = folder.images.length;
+        }
+        this.log('info', 'Favorites folder:', info);
+        context.galleryFolder = folder;
+        context.isFavorite = true;
+        for (const gallery of folder.galleryLinks) {
+          this.log('info', `**** Entering gallery "${gallery.title}" ****`);
+          await this.#process(gallery.url, stats, signal, context);
+        }
+        if (folder.images.length > 0) {
+          const savePath = this.#getGallerySavePath(null, context);
+          if (this.config.saveJSON) {
+            const infoFile = path.resolve(savePath, 'favorites.json');
+            const writeInfo = { ...folder } as any;
+            delete writeInfo.galleryLinks;
+            this.log('info', `Saving info to "${infoFile}"`);
+            fse.writeJSONSync(infoFile, writeInfo, { encoding: 'utf-8', spaces: 2 });
+          }
+          fse.ensureDirSync(savePath);
+          this.log('info', `Downloading ${folder.images.length} images from favorites folder "${folder.title}"`);
+          await Promise.all(folder.images.map((image) => this.#downloadImage(image, savePath, stats, signal)));
+        }
+        break;
+      }
+
+      case 'gallery': {
         this.log('info', `Fetching gallery contents from "${url}"`);
         let gallery: Gallery;
         let galleryHTML: string;
@@ -223,6 +274,7 @@ export default class ImageFapDownloader {
         await Promise.all(gallery.images.map((image) => this.#downloadImage(image, gallerySavePath, stats, signal)));
         stats.processedGalleryCount++;
         break;
+      }
 
       default:
         throw Error(`Unsupported target type "${targetType}"`);
@@ -254,12 +306,13 @@ export default class ImageFapDownloader {
     let nextURL: string | undefined;
     try {
       const { html, lastURL } = await this.#fetchPage(url, signal);
-      const { folder, galleryLinks, nextURL: _nextURL } = this.parser.parseGalleryFolderPage(html, lastURL);
+      const { folder, owner, galleryLinks, nextURL: _nextURL } = this.parser.parseGalleryFolderPage(html, lastURL);
       if (!current) {
         current = {
           url: folder?.url || url,
           id: folder?.id,
           title: folder?.title,
+          owner,
           galleryLinks
         };
       }
@@ -279,6 +332,47 @@ export default class ImageFapDownloader {
     if (nextURL) {
       this.log('debug', `Fetching next set of galleries from "${nextURL}"`);
       await this.#getGalleryFolder(nextURL, stats, signal, current);
+    }
+    return current;
+  }
+
+  async #getFavoritesFolder(url: string, stats: DownloadStats, signal?: AbortSignal, current?: FavoritesFolder) {
+    let nextURL: string | undefined;
+    try {
+      const { html, lastURL } = await this.#fetchPage(url, signal);
+      const { folder, owner, galleryLinks, imageLinks, nextURL: _nextURL } = this.parser.parseFavoritesFolderPage(html, lastURL);
+      const images = imageLinks && imageLinks.length > 0 ? await this.#getImagesByLink(imageLinks, signal) : [];
+      if (!current) {
+        current = {
+          url: folder?.url || url,
+          id: folder?.id,
+          title: folder?.title,
+          owner,
+          galleryLinks: galleryLinks || [],
+          images
+        };
+      }
+      else {
+        if (galleryLinks) {
+          current.galleryLinks.push(...galleryLinks);
+        }
+        if (imageLinks) {
+          current.images.push(...images);
+        }
+      }
+      nextURL = _nextURL;
+    }
+    catch (error) {
+      if (this.#isErrorNonContinuable(error) || !current) {
+        throw error;
+      }
+      this.log('error', `Error fetching contents from folder "${url}": `, error);
+      this.log('warn', 'Download will be missing some galleries');
+      this.#updateStatsOnError(error, stats);
+    }
+    if (nextURL) {
+      this.log('debug', `Fetching next set of items from "${nextURL}"`);
+      await this.#getFavoritesFolder(nextURL, stats, signal, current);
     }
     return current;
   }
@@ -330,7 +424,7 @@ export default class ImageFapDownloader {
     }
 
     if (this.config.fullFilenames) {
-      await this.#updateImageLinksWithFullTitle(imageLinks, `${title} - `, signal);
+      await this.#updateImageLinksWithFullTitle(imageLinks, signal);
     }
 
     images.forEach((image) => {
@@ -391,24 +485,42 @@ export default class ImageFapDownloader {
     return current;
   }
 
-  async #updateImageLinksWithFullTitle(links: ImageLink[], stripPrefix: string, signal?: AbortSignal) {
+  async #updateImageLinksWithFullTitle(links: ImageLink[], signal?: AbortSignal) {
     this.log('debug', 'Fetching full image titles');
     for (const link of links) {
       const {html} = await this.#fetchPage(link.url, signal);
       const title = this.parser.getImageTitleFromPhotoPage(html);
       if (title) {
-        link.fullTitle = title.startsWith(stripPrefix) ? title.substring(stripPrefix.length) : title;
+        link.fullTitle = title;
       }
     }
+  }
+
+  async #getImagesByLink(links: ImageLink[], signal?: AbortSignal): Promise<Image[]> {
+    const __doGet = async (link: ImageLink) => {
+      this.log('debug', `Fetching image info from ${link.url}`);
+      const {html} = await this.#fetchPage(link.url, signal);
+      return this.parser.parsePhotoPage(html);
+    };
+    const images = await Promise.all(links.map((link) => __doGet(link)));
+    return images.filter((image) => image !== null) as Image[];
   }
 
   #isErrorNonContinuable(error: any) {
     return error instanceof AbortError || (error instanceof FetcherError && error.fatal);
   }
 
-  #getGallerySavePath(gallery: Gallery, context: DownloadContext ) {
+  #getGallerySavePath(gallery: Gallery | null, context: DownloadContext ) {
     const gallerySavePathParts:string[] = [];
-    if (this.config.dirStructure.uploader && gallery.uploader) {
+    if (context.isFavorite) {
+      if (this.config.dirStructure.user && context.galleryFolder?.owner) {
+        gallerySavePathParts.push(sanitizeFilename(`${context.galleryFolder.owner.username} (${context.galleryFolder.owner.id})`));
+      }
+      if (this.config.dirStructure.favorites) {
+        gallerySavePathParts.push('Favorites');
+      }
+    }
+    else if (this.config.dirStructure.user && gallery?.uploader) {
       gallerySavePathParts.push(sanitizeFilename(`${gallery.uploader.username} (${gallery.uploader.id})`));
     }
     if (context.galleryFolder && context.galleryFolder.id && this.config.dirStructure.folder) {
@@ -419,7 +531,7 @@ export default class ImageFapDownloader {
         gallerySavePathParts.push(sanitizeFilename(`${context.galleryFolder.id}`));
       }
     }
-    if (this.config.dirStructure.gallery) {
+    if (this.config.dirStructure.gallery && gallery) {
       if (gallery.id) {
         gallerySavePathParts.push(sanitizeFilename(`${gallery.title} (${gallery.id})`));
       }

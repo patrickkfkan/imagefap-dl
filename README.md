@@ -45,13 +45,18 @@ URL
   Download all galleries in a folder:                                           
   - https://www.imagefap.com/profile/<username>/galleries?folderid=<folder-id>  
   - https://www.imagefap.com/organizer/<folder-id>/<folder-slug>                
-  - https://www.imagefap.com/usergallery.php?userid=<user-id>&folderid=<folder- 
-  id>
+  - https://www.imagefap.com/usergallery.php?userid=<user-id>&folderid=<folder-id>
                                                                                 
   Download a single gallery:                                                    
   - https://www.imagefap.com/gallery/<gallery-id>                               
   - https://www.imagefap.com/gallery.php?gid=<gallery-id>                       
   - https://www.imagefap.com/pictures/<gallery-id>/<gallery-slug>               
+
+  Download all user favorites:                                                  
+  - https://www.imagefap.com/showfavorites.php?userid=<user-id>                 
+                                                                                
+  Download user favorites by folder:                                            
+  - https://www.imagefap.com/showfavorites.php?userid=<user-id>&folderid=<folder-id> 
 
 Options
 
@@ -95,14 +100,17 @@ Directory structure flags (--dir-structure)
   When downloading a gallery, the following flags specify which directory is to 
   be included in the output directory structure:                                
 
-  u   Include directory for uploader of the gallery (note: does not apply when  
+  u   If downloading user favorites, include directory for the user; otherwise, 
+      include directory for uploader of the gallery (note: does not apply when  
       uploader is anonymous)                                                    
+  v   Include "Favorites" directory (only applies when downloading user         
+      favorites)
   f   Include directory for folder containing the gallery (note: does not apply 
       when downloading a single gallery)                                        
   g   Include directory for the gallery itself                                  
   -   No directory structure. All images will be downloaded to --out-dir.       
 
-  Default: ufg 
+  Default: uvfg 
 ```
 
 ## Changelog
