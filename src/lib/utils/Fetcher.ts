@@ -23,13 +23,18 @@ export interface StartDownloadOverrides {
 export class FetcherError extends Error {
 
   url: string;
+  method: string;
   fatal: boolean;
 
-  constructor(message: string, url: string, fatal = false) {
+  constructor(message: string, url: string, method = 'GET', cause?: unknown, fatal = false) {
     super(message);
     this.name = 'FetcherError';
     this.url = url;
+    this.method = method;
     this.fatal = fatal;
+    if (cause) {
+      this.cause = cause;
+    }
   }
 }
 
@@ -70,7 +75,7 @@ export default class Fetcher {
       const res = await fetch(request, { signal });
 
       if (new URL(res.url).pathname === '/human-verification') {
-        throw new FetcherError('Too many requests: try increasing the value of --min-time-page and decreasing --max-concurrent', url, true);
+        throw new FetcherError('Too many requests: try increasing the value of --min-time-page and decreasing --max-concurrent', url, 'GET', null, true);
       }
 
       return {
@@ -88,7 +93,7 @@ export default class Fetcher {
       }
       const errMsg = error instanceof Error ? error.message : error;
       const retriedMsg = rt > 0 ? ` (retried ${rt} times)` : '';
-      throw new FetcherError(`${errMsg}${retriedMsg}`, urlObj.toString());
+      throw new FetcherError(`${errMsg}${retriedMsg}`, urlObj.toString(), 'GET', error);
     }
   }
 

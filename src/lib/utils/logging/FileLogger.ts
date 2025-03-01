@@ -28,7 +28,7 @@ const DEFAULT_LOGGER_CONFIG: Omit<FileLoggerConfig, 'created'> = {
 
 export default class FileLogger extends ConsoleLogger {
 
-  protected config: FileLoggerConfig;
+  declare protected config: FileLoggerConfig;
   #stream: fs.WriteStream | null;
   #firstRun: boolean;
 
