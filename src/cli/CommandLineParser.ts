@@ -23,6 +23,8 @@ const COMMAND_LINE_ARGS = {
   maxConcurrent: 'max-concurrent',
   minTimePage: 'min-time-page',
   minTimeImage: 'min-time-image',
+  proxy: 'proxy',
+  proxyInsecure: 'proxy-insecure',
   noPrompt: 'no-prompt'
 } as const;
 
@@ -126,6 +128,17 @@ const OPT_DEFS = [
     typeLabel: '<milliseconds>'
   },
   {
+    name: COMMAND_LINE_ARGS.proxy,
+    description: 'Use the specified proxy. The URI follows this scheme: "protocol://[username:[password]]@host:port". Protocol can be http, https, socks4 or socks5.',
+    type: String,
+    typeLabel: '<URI>'
+  },
+  {
+    name: COMMAND_LINE_ARGS.proxyInsecure,
+    description: 'Do not reject invalid certificate when connecting to proxy through SSL / TLS. Use this option for proxies with self-signed certs.',
+    type: Boolean
+  },
+  {
     name: COMMAND_LINE_ARGS.noPrompt,
     description: 'Do not prompt for confirmation to proceed',
     alias: 'y',
@@ -151,7 +164,7 @@ export default class CommandLineParser {
       return name;
     };
 
-    const __getValue = (key: typeof COMMAND_LINE_ARGS[keyof typeof COMMAND_LINE_ARGS]): CLIOptionParserEntry | undefined => {
+    const __getValue = (key: typeof COMMAND_LINE_ARGS[keyof typeof COMMAND_LINE_ARGS], reverseBoolean = false): CLIOptionParserEntry | undefined => {
       let value = opts[key];
 
       const booleanTypeArgs = [
@@ -160,10 +173,11 @@ export default class CommandLineParser {
         COMMAND_LINE_ARGS.fullFilenames,
         COMMAND_LINE_ARGS.overwrite,
         COMMAND_LINE_ARGS.noJSON,
-        COMMAND_LINE_ARGS.noHTML
+        COMMAND_LINE_ARGS.noHTML,
+        COMMAND_LINE_ARGS.proxyInsecure
       ];
       if (booleanTypeArgs.includes(key as any) && value !== undefined) {
-        value = '1';
+        value = !reverseBoolean ? '1' : '0';
       }
 
       if (value === null) {
@@ -193,6 +207,10 @@ export default class CommandLineParser {
         minTime: {
           page: __getValue(COMMAND_LINE_ARGS.minTimePage),
           image: __getValue(COMMAND_LINE_ARGS.minTimeImage)
+        },
+        proxy: {
+          url: __getValue(COMMAND_LINE_ARGS.proxy),
+          rejectUnauthorizedTLS: __getValue(COMMAND_LINE_ARGS.proxyInsecure, true)
         }
       },
       noPrompt: __getValue(COMMAND_LINE_ARGS.noPrompt),

@@ -3,6 +3,11 @@ import Logger from './utils/logging/Logger.js';
 import { DeepRequired, pickDefined } from './utils/Misc.js';
 import { DownloaderConfig } from './ImageFapDownloader.js';
 
+export interface ProxyOptions {
+  url: string;
+  rejectUnauthorizedTLS?: boolean;
+}
+
 export interface DownloaderOptions {
   outDir?: string;
   dirStructure?: {
@@ -20,6 +25,7 @@ export interface DownloaderOptions {
       page?: number;
       image?: number;
     };
+    proxy?: ProxyOptions | null;
   };
   overwrite?: boolean;
   saveJSON?: boolean;
@@ -45,7 +51,8 @@ const DEFAULT_DOWNLOADER_CONFIG: Pick<DeepRequired<DownloaderConfig>,
       minTime: {
         page: 2000,
         image: 200
-      }
+      },
+      proxy: null
     },
     overwrite: false,
     saveJSON: true,
@@ -70,7 +77,11 @@ export function getDownloaderConfig(url: string, options?: DownloaderOptions): D
       minTime: {
         page: pickDefined(options?.request?.minTime?.page, defaults.request.minTime.page),
         image: pickDefined(options?.request?.minTime?.image, defaults.request.minTime.image)
-      }
+      },
+      proxy: options?.request?.proxy?.url ? {
+        url: options.request.proxy.url,
+        rejectUnauthorizedTLS: options.request.proxy.rejectUnauthorizedTLS ?? true
+      } : null
     },
     overwrite: pickDefined(options?.overwrite, defaults.overwrite),
     saveJSON: pickDefined(options?.saveJSON, defaults.saveJSON),

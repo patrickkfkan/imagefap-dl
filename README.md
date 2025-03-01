@@ -94,7 +94,16 @@ Options
                                         will likely get 'Too many requests'     
                                         errors. Default: 2000                   
   -i, --min-time-image <milliseconds>   Minimum time to wait between image      
-                                        download requests. Default: 200         
+                                        download requests. Default: 200     
+  --proxy <URI>                         Use the specified proxy. The URI        
+                                        follows this scheme:                    
+                                        "protocol://[username:[password]]@host:port". 
+                                        Protocol can be http, https, socks4 or  
+                                        socks5.                                 
+  --proxy-insecure                      Do not reject invalid certificate when  
+                                        connecting to proxy through SSL / TLS.  
+                                        Use this option for proxies with self-  
+                                        signed certs.          
   -y, --no-prompt                       Do not prompt for confirmation to       
                                         proceed                                 
 

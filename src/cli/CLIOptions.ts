@@ -2,7 +2,7 @@ import { DownloaderOptions } from '../lib/DownloaderOptions.js';
 import { pickDefined } from '../lib/utils/Misc.js';
 import { LogLevel } from '../lib/utils/logging/Logger.js';
 import CLIOptionValidator from './CLIOptionValidator.js';
-import CommandLineParser from './CommandLineParser.js';
+import CommandLineParser, { CommandLineParseResult } from './CommandLineParser.js';
 
 export interface CLIOptions extends Omit<DownloaderOptions, 'dirStructure' | 'logger' | 'saveJSON' | 'saveHTML'> {
   url: string;
@@ -21,6 +21,16 @@ export interface CLIOptions extends Omit<DownloaderOptions, 'dirStructure' | 'lo
 export interface CLIOptionParserEntry {
   key: string;
   value?: string;
+}
+
+function getProxyOptions(commandLineOptions?: CommandLineParseResult | null) {
+  if (commandLineOptions?.request?.proxy && commandLineOptions.request.proxy.url?.value?.trim()) {
+    return {
+      url: CLIOptionValidator.validateProxyURL(commandLineOptions.request.proxy.url),
+      rejectUnauthorizedTLS: CLIOptionValidator.validateBoolean(commandLineOptions.request.proxy.rejectUnauthorizedTLS)
+    };
+  }
+  return null;
 }
 
 export function getCLIOptions(): CLIOptions {
@@ -43,7 +53,8 @@ export function getCLIOptions(): CLIOptions {
       minTime: {
         page: CLIOptionValidator.validateNumber(commandLineOptions?.request?.minTime?.page),
         image: CLIOptionValidator.validateNumber(commandLineOptions?.request?.minTime?.image)
-      }
+      },
+      proxy: getProxyOptions(commandLineOptions)
     },
     noPrompt: CLIOptionValidator.validateBoolean(commandLineOptions.noPrompt) || false,
     logging: {

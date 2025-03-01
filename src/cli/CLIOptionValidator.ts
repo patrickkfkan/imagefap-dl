@@ -87,4 +87,25 @@ export default class CLIOptionValidator {
     }
     return value;
   }
+
+  static validateProxyURL(entry?: CLIOptionParserEntry) {
+    if (!entry || !entry.value) {
+      return '';
+    }
+    try {
+      const urlObj = new URL(entry.value);
+      const supportedProtocols = [ 'http', 'https', 'socks4', 'socks5' ];
+      const urlProtocol = urlObj.protocol.endsWith(':') ? urlObj.protocol.substring(0, urlObj.protocol.length - 1) : urlObj.protocol;
+      if (!supportedProtocols.includes(urlProtocol)) {
+        throw Error(`Unsupported proxy protocol '${urlProtocol}'; must be one of ${supportedProtocols.map((p) => `'${p}'`).join(', ')}.`);
+      }
+      return urlObj.toString();
+    }
+    catch (error: unknown) {
+      if (error instanceof Error)
+        throw Error(`${entry.key} has invalid value: ${error.message}`);
+
+      throw Error(`${entry.key} has invalid value.`, { cause: error });
+    }
+  }
 }

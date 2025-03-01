@@ -14,6 +14,7 @@ import { FavoritesFolder, GalleryFolder } from './entities/GalleryFolder.js';
 import { Gallery } from './entities/Gallery.js';
 import { Image, ImageLink } from './entities/Image.js';
 import { User } from './entities/User.js';
+import { HeadersInit } from 'undici';
 
 export type DownloadTargetType = 'userGalleries' | 'galleryFolder' | 'gallery' | 'photo' | 'favorites' | 'favoritesFolder';
 
@@ -283,12 +284,12 @@ export default class ImageFapDownloader {
 
   protected async getFetcher() {
     if (!this.#fetcher) {
-      this.#fetcher = await Fetcher.getInstance(this.logger);
+      this.#fetcher = await Fetcher.getInstance(this.logger, this.config.request.proxy);
     }
     return this.#fetcher;
   }
 
-  async #fetchPage(url: string, signal?: AbortSignal, headers?: Headers) {
+  async #fetchPage(url: string, signal?: AbortSignal, headers?: HeadersInit) {
     const fetcher = await this.getFetcher();
     return this.pageFetchLimiter.schedule(() => {
       this.log('debug', `Fetch page "${url}"`);
@@ -389,10 +390,10 @@ export default class ImageFapDownloader {
     }
     const images: Image[] = [];
     while (imageNavURL) {
-      const headers = new Headers({
+      const headers = {
         'Content-Type': 'application/x-www-form-urlencoded',
         'Referer': URLHelper.constructImageNavRefererURL({ referrerImageID, galleryID: id })
-      });
+      };
       const {html} = await this.#fetchPage(imageNavURL, signal, headers);
       const navImages = this.parser.parseImageNav(html);
       totalNavImageCount += navImages.length;

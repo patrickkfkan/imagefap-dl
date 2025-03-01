@@ -2,10 +2,13 @@ import * as fs from 'fs';
 import { pipeline } from 'stream/promises';
 import { URL } from 'url';
 import path from 'path';
+import { Dispatcher, fetch, Request, Response, HeadersInit } from 'undici';
 import Logger, { LogLevel, commonLog } from './logging/Logger.js';
 import { ensureDirSync } from 'fs-extra';
 import { sleepBeforeExecute } from './Misc.js';
 import { SITE_URL } from './URLHelper.js';
+import { createProxyAgent } from './Proxy.js';
+import { ProxyOptions } from '../DownloaderOptions.js';
 
 export interface DownloadImageParams {
   // Image src (URL)
@@ -46,17 +49,20 @@ export default class Fetcher {
 
   #logger?: Logger | null;
   #cookie: string | null;
+  #proxyAgent?: Dispatcher;
 
-  constructor(logger: Logger | null | undefined, cookie: string | null) {
+  constructor(logger: Logger | null | undefined, cookie: string | null, proxyAgent?: Dispatcher) {
     this.#logger = logger;
     this.#cookie = cookie;
+    this.#proxyAgent = proxyAgent;
   }
 
-  static async getInstance(logger?: Logger | null) {
+  static async getInstance(logger?: Logger | null, proxyOptions?: ProxyOptions | null) {
+    const proxyAgent = createProxyAgent(proxyOptions)?.agent || undefined;
     const request = new Request(SITE_URL, { method: 'GET' });
-    const res = await fetch(request, { redirect: 'manual' });
+    const res = await fetch(request, { redirect: 'manual', dispatcher: proxyAgent });
     const cookie = res.headers.get('set-cookie');
-    return new Fetcher(logger, cookie);
+    return new Fetcher(logger, cookie, proxyAgent);
   }
 
   async fetchHTML(args: {
@@ -64,7 +70,7 @@ export default class Fetcher {
     maxRetries: number,
     retryInterval: number,
     signal?: AbortSignal,
-    headers?: Headers
+    headers?: HeadersInit
   }, rt = 0): Promise<{html: string, lastURL: string}> {
 
     const { url, maxRetries, retryInterval, signal, headers } = args;
@@ -72,7 +78,7 @@ export default class Fetcher {
     const request = new Request(urlObj, { method: 'GET', headers });
     this.#setHeaders(request);
     try {
-      const res = await fetch(request, { signal });
+      const res = await fetch(request, { signal, dispatcher: this.#proxyAgent });
 
       if (new URL(res.url).pathname === '/human-verification') {
         throw new FetcherError('Too many requests: try increasing the value of --min-time-page and decreasing --max-concurrent', url, 'GET', null, true);
@@ -101,7 +107,7 @@ export default class Fetcher {
     const { src, dest, signal } = params;
     const request = new Request(src, { method: 'GET' });
     this.#setHeaders(request);
-    const res = await fetch(request, { signal });
+    const res = await fetch(request, { signal, dispatcher: this.#proxyAgent });
     if (this.#assertResponseOK(res, src)) {
       const destFilePath = path.resolve(dest);
       const { dir: destDir, base: destFilename } = path.parse(destFilePath);
