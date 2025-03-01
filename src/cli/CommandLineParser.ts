@@ -9,7 +9,7 @@ export type CommandLineParseResult = RecursivePropsTo<DeepPartial<CLIOptions>, C
 
 const COMMAND_LINE_ARGS = {
   help: 'help',
-  url: 'url',
+  target: 'target',
   outDir: 'out-dir',
   dirStructure: 'dir-structure',
   seqFilenames: 'seq-filenames',
@@ -36,8 +36,8 @@ const OPT_DEFS = [
     type: Boolean
   },
   {
-    name: COMMAND_LINE_ARGS.url,
-    description: 'URL of content to download',
+    name: COMMAND_LINE_ARGS.target,
+    description: 'URL of content to download, or file containing a list of URLs.',
     type: String,
     defaultOption: true
   },
@@ -193,7 +193,7 @@ export default class CommandLineParser {
     };
 
     return {
-      url: __getValue(COMMAND_LINE_ARGS.url),
+      target: __getValue(COMMAND_LINE_ARGS.target),
       outDir: __getValue(COMMAND_LINE_ARGS.outDir),
       dirStructure: __getValue(COMMAND_LINE_ARGS.dirStructure),
       seqFilenames: __getValue(COMMAND_LINE_ARGS.seqFilenames),
@@ -230,7 +230,12 @@ export default class CommandLineParser {
       return false;
     }
     if (opts.help) {
-      const urlContent = [
+      const targetContent = [
+        `Target can be a URL or a file containing a list of URLs to download from.${EOL}`,
+
+        'Supported URL formats',
+        `---------------------${EOL}`,
+
         'Download all galleries by a user:',
         `- https://www.imagefap.com/profile/<username>/galleries${EOL}`,
 
@@ -248,8 +253,12 @@ export default class CommandLineParser {
         `- https://www.imagefap.com/showfavorites.php?userid=<user-id>${EOL}`,
 
         'Download user favorites by folder:',
-        '- https://www.imagefap.com/showfavorites.php?userid=<user-id>&folderid=<folder-id>'
+        `- https://www.imagefap.com/showfavorites.php?userid=<user-id>&folderid=<folder-id>${EOL}`,
 
+        'File',
+        `----${EOL}`,
+
+        'Files must be in plain text format with each URL placed in its own line. Lines starting with # are ignored.'
       ];
       const dirStructureContent = [
         {
@@ -276,16 +285,16 @@ export default class CommandLineParser {
       const sections: commandLineUsage.Section[] = [
         {
           header: 'Usage',
-          content: 'imagefap-dl [OPTION]... URL'
+          content: 'imagefap-dl [OPTION]... TARGET'
         },
         {
-          header: 'URL',
-          content: urlContent.join(EOL)
+          header: 'TARGET',
+          content: targetContent.join(EOL)
         },
         {
           header: 'Options',
           optionList: OPT_DEFS,
-          hide: 'url'
+          hide: 'target'
         },
         {
           header: 'Directory structure flags (--dir-structure)',

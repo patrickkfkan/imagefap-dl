@@ -32,7 +32,7 @@ export interface DownloaderConfig extends DeepRequired<Pick<DownloaderOptions,
   'overwrite' |
   'saveJSON' |
   'saveHTML'>> {
-    targetURL: string;
+    targetURLs: string[];
   }
 
 export interface DownloaderStartParams {
@@ -61,9 +61,9 @@ export default class ImageFapDownloader {
   protected logger?: Logger | null;
   protected parser: Parser;
 
-  constructor(url: string, options?: DownloaderOptions) {
+  constructor(url: string | string[], options?: DownloaderOptions) {
     this.config = deepFreeze({
-      ...getDownloaderConfig(url, options)
+      ...getDownloaderConfig(!Array.isArray(url) ? [ url ] : url, options)
     });
     this.pageFetchLimiter = new Bottleneck({
       maxConcurrent: 1,
@@ -78,16 +78,34 @@ export default class ImageFapDownloader {
   }
 
   async start(params: DownloaderStartParams): Promise<void> {
-    const stats: DownloadStats = {
-      processedGalleryCount: 0,
-      skippedPasswordProtectedFolderURLs: [],
-      skippedExistingImageCount: 0,
-      downloadedImageCount: 0,
-      errorCount: 0
-    };
+    const combinedStats = this.#getEmptyStats();
     try {
-      await this.#process(this.config.targetURL, stats, params.signal);
-      this.log('info', 'Download complete');
+      for (const url of this.config.targetURLs) {
+        const stats = this.#getEmptyStats();
+        try {
+          await this.#process(url, stats, params.signal);
+          this.log('info', 'Download complete');
+        }
+        catch (error: unknown) {
+          if (!params.signal?.aborted) {
+            this.log('error', 'Unhandled error: ', error);
+            this.#updateStatsOnError(error, stats);
+          }
+          throw error;
+        }
+        finally {
+          this.logEmptyLine();
+          this.#logStats(stats, `Done processing: ${url}`);
+          combinedStats.processedGalleryCount += stats.processedGalleryCount;
+          combinedStats.skippedPasswordProtectedFolderURLs = {
+            ...combinedStats.skippedPasswordProtectedFolderURLs,
+            ...stats.skippedPasswordProtectedFolderURLs
+          };
+          combinedStats.skippedExistingImageCount += stats.skippedExistingImageCount;
+          combinedStats.downloadedImageCount += stats.downloadedImageCount;
+          combinedStats.errorCount += stats.errorCount;
+        }
+      }
     }
     catch (error) {
       const __clearLimiters = () => {
@@ -108,14 +126,27 @@ export default class ImageFapDownloader {
         this.log('info', 'Download aborted');
       }
       else {
-        this.log('error', 'Unhandled error: ', error);
-        this.#updateStatsOnError(error, stats);
         await __clearLimiters();
       }
     }
-    this.log('info', '--------------');
-    this.log('info', 'Download stats');
-    this.log('info', '--------------');
+    if (this.config.targetURLs.length > 1) {
+      this.#logStats(combinedStats, `Total ${this.config.targetURLs.length} URLs processed`);
+    }
+  }
+
+  #getEmptyStats(): DownloadStats {
+    return {
+      processedGalleryCount: 0,
+      skippedPasswordProtectedFolderURLs: [],
+      skippedExistingImageCount: 0,
+      downloadedImageCount: 0,
+      errorCount: 0
+    };
+  }
+
+  #logStats(stats: DownloadStats, header: string) {
+    this.log('info', header);
+    this.log('info', '-'.repeat(header.length));
     this.log('info', `Processed galleries: ${stats.processedGalleryCount}`);
     this.log('info', `Downloaded images: ${stats.downloadedImageCount}`);
     this.log('info', `Skipped existing images: ${stats.skippedExistingImageCount}`);
@@ -131,6 +162,7 @@ export default class ImageFapDownloader {
         stats.skippedPasswordProtectedFolderURLs
       );
     }
+    this.logEmptyLine();
   }
 
   #updateStatsOnError(error: any, stats: DownloadStats) {
@@ -145,6 +177,10 @@ export default class ImageFapDownloader {
       return;
     }
     commonLog(this.logger, level, this.name, ...msg);
+  }
+
+  protected logEmptyLine() {
+    this.logger?.log(null);
   }
 
   getConfig() {

@@ -7,7 +7,7 @@ export interface LogEntry {
 }
 
 export default abstract class Logger {
-  abstract log(entry: LogEntry): void;
+  abstract log(entry: LogEntry | null): void;
 
   end(): Promise<void> {
     return Promise.resolve();

@@ -23,6 +23,17 @@ $ imagefap-dl "https://www.imagefap.com/profile/johndoe/galleries"
 
 // Download a single gallery to "C:\Downloads"
 $ imagefap-dl -o "C:\Downloads" "https://www.imagefap.com/gallery/1234567"
+
+// Download from the list of URLs contained in file "urls.txt"
+$ imagefap-dl urls.txt
+
+// urls.txt
+------------------------------------------------------
+https://www.imagefap.com/profile/johndoe/galleries
+https://www.imagefap.com/gallery/1234567
+
+# Lines starting with # are ignored
+# https://www.imagefap.com/gallery/9876543 --> Ignored
 ```
 
 > URLs can be copy-and-pasted from the ImageFap website. Make sure they conform to one of the formats listed in the usage guide (below).
@@ -35,9 +46,14 @@ Output:
 ```
 Usage
 
-  imagefap-dl [OPTION]... URL 
+  imagefap-dl [OPTION]... TARGET 
 
-URL
+TARGET
+
+  Target can be a URL or a file containing a list of URLs to download from.     
+                                                                                
+  Supported URL formats                                                         
+  ---------------------                                                         
 
   Download all galleries by a user:                                             
   - https://www.imagefap.com/profile/<username>/galleries                       
@@ -57,6 +73,12 @@ URL
                                                                                 
   Download user favorites by folder:                                            
   - https://www.imagefap.com/showfavorites.php?userid=<user-id>&folderid=<folder-id> 
+                                                                                
+  File                                                                          
+  ----                                                                          
+                                                                                
+  Files must be in plain text format with each URL placed in its own line.      
+  Lines starting with # are ignored.                                            
 
 Options
 

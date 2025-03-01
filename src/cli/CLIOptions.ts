@@ -5,7 +5,7 @@ import CLIOptionValidator from './CLIOptionValidator.js';
 import CommandLineParser, { CommandLineParseResult } from './CommandLineParser.js';
 
 export interface CLIOptions extends Omit<DownloaderOptions, 'dirStructure' | 'logger' | 'saveJSON' | 'saveHTML'> {
-  url: string;
+  target: string;
   noPrompt: boolean;
   dirStructure: string;
   seqFilenames: boolean;
@@ -39,7 +39,7 @@ export function getCLIOptions(): CLIOptions {
   const dirStructure = CLIOptionValidator.validateFlags(commandLineOptions.dirStructure, 'u', 'v', 'f', 'g', '-');
 
   const options: CLIOptions = {
-    url: CLIOptionValidator.validateRequired(commandLineOptions.url, 'No target URL specified'),
+    target: CLIOptionValidator.validateRequired(commandLineOptions.target, 'No target specified'),
     outDir: CLIOptionValidator.validateString(commandLineOptions.outDir),
     dirStructure: pickDefined(dirStructure, 'uvfg'),
     seqFilenames: CLIOptionValidator.validateBoolean(commandLineOptions.seqFilenames) || false,

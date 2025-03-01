@@ -69,11 +69,15 @@ export default class ConsoleLogger extends Logger {
     };
   }
 
-  log(entry: LogEntry): void {
+  log(entry: LogEntry | null): void {
+    if (!entry) {
+      this.toOutput(null, [ '' ]);
+      return;
+    }
     if (this.config.logLevel === 'none') {
       return;
     }
-    if (this.checkLevel(entry.level)) {
+    if (!entry.level || this.checkLevel(entry.level)) {
       this.toOutput(entry.level, this.toStrings(entry));
     }
   }
@@ -134,7 +138,7 @@ export default class ConsoleLogger extends Logger {
       strings.unshift(this.colorize(`${originator}:`, 'originator'));
     }
 
-    if (this.config.include.level) {
+    if (this.config.include.level && level) {
       strings.unshift(this.colorize(`${level}:`, level));
     }
 
@@ -154,7 +158,7 @@ export default class ConsoleLogger extends Logger {
     return value;
   }
 
-  protected toOutput(level: LogLevel, msg: string[]) {
+  protected toOutput(level: LogLevel | null | undefined, msg: string[]) {
     switch (level) {
       case 'error':
         console.error(...msg);
@@ -169,6 +173,7 @@ export default class ConsoleLogger extends Logger {
         console.debug(...msg);
         break;
       default:
+        console.log(...msg);
     }
   }
 }

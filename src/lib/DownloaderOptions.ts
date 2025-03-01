@@ -59,7 +59,7 @@ const DEFAULT_DOWNLOADER_CONFIG: Pick<DeepRequired<DownloaderConfig>,
     saveHTML: true
   };
 
-export function getDownloaderConfig(url: string, options?: DownloaderOptions): DownloaderConfig {
+export function getDownloaderConfig(url: string[], options?: DownloaderOptions): DownloaderConfig {
   const defaults = DEFAULT_DOWNLOADER_CONFIG;
   return {
     outDir: options?.outDir ? path.resolve(options.outDir) : defaults.outDir,
@@ -86,7 +86,7 @@ export function getDownloaderConfig(url: string, options?: DownloaderOptions): D
     overwrite: pickDefined(options?.overwrite, defaults.overwrite),
     saveJSON: pickDefined(options?.saveJSON, defaults.saveJSON),
     saveHTML: pickDefined(options?.saveHTML, defaults.saveHTML),
-    targetURL: url
+    targetURLs: url
   };
 }
 

@@ -10,6 +10,8 @@ import ChainLogger from '../lib/utils/logging/ChainLogger.js';
 import ImageFapDownloader from '../lib/ImageFapDownloader.js';
 import path from 'path';
 import { DownloaderOptions } from '../lib/DownloaderOptions.js';
+import URLHelper from '../lib/utils/URLHelper.js';
+import { existsSync, readFileSync } from 'fs';
 
 export default class ImageFapDownloaderCLI {
 
@@ -31,8 +33,63 @@ export default class ImageFapDownloaderCLI {
     }
 
     let options;
+    let parsedTarget: {
+      src: 'cli' | 'file';
+      urls: string[];
+    } | null = null;
     try {
       options = getCLIOptions();
+      const target = options.target;
+      // Test if target points to a file
+      if (existsSync(target)) {
+        try {
+          const lines = readFileSync(target, 'utf-8').split(/\r?\n/).map((line) => line.trim()).filter((line) => line && !line.startsWith('#'));
+          parsedTarget = {
+            src: 'file',
+            urls: lines
+          };
+        }
+        catch (error: unknown) {
+          throw Error(`Error reading file "${target}": ${error instanceof Error ? error.message : error}`);
+        }
+      }
+      else {
+        // Test if target is URL
+        try {
+          const urlObj = new URL(target);
+          parsedTarget = {
+            src: 'cli',
+            urls: [ urlObj.toString() ]
+          };
+        }
+        catch (error) {
+          throw Error('Target is not a file nor a valid URL');
+        }
+      }
+      // Check validity of target URL(s)
+      const targetErrors: {url: string; error: unknown}[] = [];
+      for (const url of parsedTarget.urls) {
+        try {
+          URLHelper.getTargetTypeByURL(url);
+        }
+        catch (error: unknown) {
+          targetErrors.push({ url, error });
+        }
+      }
+      if (targetErrors.length > 0) {
+        if (parsedTarget.src === 'cli') {
+          const { url, error } = targetErrors[0];
+          console.error(`Target URL "${url}" is invalid: ${error instanceof Error ? error.message : error}`);
+        }
+        else {
+          console.error(`One or more target URLs in "${target}" is invalid:`);
+          targetErrors.forEach(({url, error}) => {
+            console.error(`- "${url}": ${error instanceof Error ? error.message : error}`);
+          });
+        }
+        console.error('');
+        throw Error('Invalid target');
+      }
     }
     catch (error) {
       console.error(
@@ -63,7 +120,7 @@ export default class ImageFapDownloaderCLI {
     // Create downloader
     let downloader;
     try {
-      downloader = new ImageFapDownloader(options.url, {
+      downloader = new ImageFapDownloader(parsedTarget.urls, {
         ...options,
         dirStructure,
         logger,
