@@ -149,6 +149,10 @@ Directory structure flags (--dir-structure)
 
 ## Changelog
 
+v2.1.0
+- Add proxy support ([#6](https://github.com/patrickkfkan/imagefap-dl/issues/6))
+- Add support for downloading from multiple URLs ([#8](https://github.com/patrickkfkan/imagefap-dl/issues/8))
+
 v2.0.0
 - Add support for downloading user favorites ([#5](https://github.com/patrickkfkan/imagefap-dl/issues/5))
 - Add `--seq-filenames` option
